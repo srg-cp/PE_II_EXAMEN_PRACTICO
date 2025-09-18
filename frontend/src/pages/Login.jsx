@@ -35,14 +35,13 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await login(formData.email, formData.password);
-      if (result.success) {
-        navigate('/dashboard');
-      } else {
-        setError(result.message || 'Error al iniciar sesión');
-      }
+      await login(formData);
+      navigate('/dashboard');
     } catch (err) {
-      setError('Error de conexión. Intenta nuevamente.');
+      console.error('Error en login:', err);
+      // Extraer el mensaje específico del servidor
+      const errorMessage = err.response?.data?.message || 'Error de conexión. Intenta nuevamente.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

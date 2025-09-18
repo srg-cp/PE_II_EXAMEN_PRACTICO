@@ -88,7 +88,7 @@ const login = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
+    const user = await User.findById(req.user._id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
@@ -100,8 +100,40 @@ const getProfile = async (req, res) => {
   }
 };
 
+// Buscar usuarios por email o nombre
+const searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.length < 2) {
+      return res.status(400).json({ message: 'La búsqueda debe tener al menos 2 caracteres' });
+    }
+
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: req.user._id } }, // Excluir al usuario actual
+        {
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { email: { $regex: query, $options: 'i' } }
+          ]
+        },
+        { isActive: true }
+      ]
+    })
+    .select('name email avatar')
+    .limit(10);
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Error buscando usuarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   register,
   login,
-  getProfile
+  getProfile,
+  searchUsers
 };

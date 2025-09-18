@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ProjectBoard from './pages/ProjectBoard';
 import DocumentEditor from './pages/DocumentEditor';
+import Projects from './pages/Projects';
 import './index.css';
 
 // Tema Material Design 3
@@ -72,34 +73,52 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <SocketProvider>
-          <Router>
-            <div className="min-h-screen bg-gray-50">
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/" element={
+        <Router>
+          <div className="App">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/dashboard"
+                element={
                   <ProtectedRoute>
                     <Navbar />
                     <Dashboard />
                   </ProtectedRoute>
-                } />
-                <Route path="/project/:projectId/board" element={
+                }
+              />
+              {/* Cambiar la redirección por la página de proyectos */}
+              <Route
+                path="/projects"
+                element={
+                  <ProtectedRoute>
+                    <Navbar />
+                    <Projects />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects/:id/board"
+                element={
                   <ProtectedRoute>
                     <Navbar />
                     <ProjectBoard />
                   </ProtectedRoute>
-                } />
-                <Route path="/project/:projectId/document/:documentId" element={
+                }
+              />
+              <Route
+                path="/documents/:id"
+                element={
                   <ProtectedRoute>
                     <Navbar />
                     <DocumentEditor />
                   </ProtectedRoute>
-                } />
-              </Routes>
-            </div>
-          </Router>
-        </SocketProvider>
+                }
+              />
+            </Routes>
+          </div>
+        </Router>
       </AuthProvider>
     </ThemeProvider>
   );

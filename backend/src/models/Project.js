@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema({
-  title: {
+  name: {
     type: String,
     required: true,
     trim: true
@@ -10,25 +10,30 @@ const projectSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  image: {
+    type: String,
+    default: ''
+  },
+  objectives: {
+    type: String,
+    trim: true
+  },
+  timeline: {
+    startDate: {
+      type: Date
+    },
+    endDate: {
+      type: Date
+    }
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   members: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    role: {
-      type: String,
-      enum: ['admin', 'editor', 'viewer'],
-      default: 'editor'
-    },
-    joinedAt: {
-      type: Date,
-      default: Date.now
-    }
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }],
   status: {
     type: String,

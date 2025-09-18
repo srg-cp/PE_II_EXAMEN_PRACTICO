@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Configurar axios base URL
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -16,8 +19,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Configurar axios con token
+  // Configurar axios con el token
   useEffect(() => {
+    console.log('Configurando token en axios:', token);
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
@@ -27,37 +31,59 @@ export const AuthProvider = ({ children }) => {
 
   // Verificar token al cargar la aplicación
   useEffect(() => {
-    const verifyToken = async () => {
+    const checkAuth = async () => {
+      console.log('Verificando autenticación, token:', token);
       if (token) {
         try {
-          const response = await axios.get('/api/auth/verify');
+          console.log('Enviando request a /api/auth/profile');
+          const response = await axios.get('/api/auth/profile');
+          console.log('Respuesta del servidor:', response.data);
           setUser(response.data.user);
         } catch (error) {
-          localStorage.removeItem('token');
-          setToken(null);
+          console.error('Error verificando autenticación:', error);
+          console.error('Respuesta del error:', error.response?.data);
+          // Solo hacer logout si el error es 401 o 403
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            logout();
+          }
         }
       }
       setLoading(false);
     };
 
-    verifyToken();
+    checkAuth();
   }, [token]);
 
-  const login = async (email, password) => {
+  // Interceptor para manejar errores de autenticación globalmente
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 && token) {
+          console.log('Token expirado, cerrando sesión');
+          logout();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, [token]);
+
+  const login = async (credentials) => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axios.post('/api/auth/login', credentials);
       const { token: newToken, user: userData } = response.data;
       
-      localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(userData);
+      localStorage.setItem('token', newToken);
       
-      return { success: true };
+      return response.data;
     } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Error al iniciar sesión'
-      };
+      throw error;
     }
   };
 
@@ -66,31 +92,30 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/register', userData);
       const { token: newToken, user: newUser } = response.data;
       
-      localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(newUser);
+      localStorage.setItem('token', newToken);
       
-      return { success: true };
+      return response.data;
     } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Error al registrarse'
-      };
+      throw error;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
   };
 
   const value = {
     user,
+    token,
+    loading,
     login,
     register,
     logout,
-    loading,
     isAuthenticated: !!user
   };
 
