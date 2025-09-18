@@ -68,8 +68,7 @@ const Dashboard = () => {
   };
 
   const handleCreateProject = () => {
-    // Aquí puedes agregar la lógica para crear un nuevo proyecto
-    console.log('Crear nuevo proyecto');
+    setCreateModalOpen(true);
   };
 
   const handleProjectCreated = (newProject) => {
@@ -137,7 +136,7 @@ const Dashboard = () => {
               },
               cursor: 'pointer'
             }}
-            onClick={handleCreateProject}
+            onClick={() => setCreateModalOpen(true)}
           >
             <CardContent sx={{ flexGrow: 1, textAlign: 'center', py: 4 }}>
               <Avatar sx={{ mx: 'auto', mb: 2, bgcolor: 'primary.main', width: 56, height: 56 }}>
@@ -154,7 +153,10 @@ const Dashboard = () => {
               <Button 
                 variant="contained" 
                 startIcon={<AddIcon />}
-                onClick={handleCreateProject}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCreateModalOpen(true);
+                }}
               >
                 Crear Proyecto
               </Button>
@@ -179,16 +181,27 @@ const Dashboard = () => {
             >
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box display="flex" alignItems="center" mb={2}>
-                  <Avatar 
-                    sx={{ 
-                      bgcolor: 'primary.main', 
-                      mr: 2,
-                      width: 48,
-                      height: 48
-                    }}
-                  >
-                    {project.name.charAt(0).toUpperCase()}
-                  </Avatar>
+                  {project.image ? (
+                    <Avatar 
+                      src={project.image}
+                      sx={{ 
+                        mr: 2,
+                        width: 48,
+                        height: 48
+                      }}
+                    />
+                  ) : (
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: 'primary.main', 
+                        mr: 2,
+                        width: 48,
+                        height: 48
+                      }}
+                    >
+                      {project.name.charAt(0).toUpperCase()}
+                    </Avatar>
+                  )}
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="h6" component="h3" noWrap>
                       {project.name}
@@ -277,7 +290,7 @@ const Dashboard = () => {
             variant="contained" 
             size="large"
             startIcon={<AddIcon />}
-            onClick={handleCreateProject}
+            onClick={() => setCreateModalOpen(true)}
           >
             Crear Primer Proyecto
           </Button>

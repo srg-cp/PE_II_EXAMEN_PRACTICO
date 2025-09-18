@@ -162,24 +162,6 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
     onClose();
   };
 
-  // Verificar si el usuario actual es el owner
-  const isOwner = project?.owner?._id === user?._id;
-
-  if (!isOwner) {
-    return (
-      <Dialog open={open} onClose={handleClose}>
-        <DialogContent>
-          <Alert severity="warning">
-            Solo el propietario del proyecto puede editarlo.
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
-
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>

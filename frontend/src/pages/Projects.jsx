@@ -12,7 +12,10 @@ import {
   Box,
   Chip,
   Divider,
-  IconButton
+  IconButton,
+  Fab,
+  Avatar,
+  CardMedia
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -22,6 +25,7 @@ import {
   Group as GroupIcon
 } from '@mui/icons-material';
 import CreateProjectModal from '../components/CreateProjectModal';
+import EditProjectModal from '../components/EditProjectModal';
 
 const Projects = () => {
   const { user } = useAuth();
@@ -29,6 +33,8 @@ const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     fetchProjects();
@@ -64,6 +70,19 @@ const Projects = () => {
     navigate(`/projects/${projectId}/board`);
   };
 
+  const handleEditProject = (project) => {
+    setSelectedProject(project);
+    setEditModalOpen(true);
+  };
+
+  const handleProjectUpdated = (updatedProject) => {
+    setProjects(prev => 
+      prev.map(project => 
+        project._id === updatedProject._id ? updatedProject : project
+      )
+    );
+  };
+
   // Separar proyectos por rol - Agregar validación adicional
   const ownedProjects = Array.isArray(projects) ? projects.filter(project => project.owner?._id === user?._id) : [];
   const invitedProjects = Array.isArray(projects) ? projects.filter(project => project.owner?._id !== user?._id) : [];
@@ -82,6 +101,32 @@ const Projects = () => {
           }
         }}
       >
+        {/* Imagen del proyecto */}
+        {project.image ? (
+          <CardMedia
+            component="img"
+            height="140"
+            image={project.image}
+            alt={project.name}
+            sx={{ objectFit: 'cover' }}
+          />
+        ) : (
+          <Box
+            sx={{
+              height: 140,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'primary.main',
+              color: 'white'
+            }}
+          >
+            <Typography variant="h2" sx={{ fontWeight: 'bold' }}>
+              {project.name.charAt(0).toUpperCase()}
+            </Typography>
+          </Box>
+        )}
+        
         <CardContent sx={{ flexGrow: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
             <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold' }}>
@@ -116,7 +161,14 @@ const Projects = () => {
           </Button>
           
           {isOwner && (
-            <IconButton size="small" color="primary">
+            <IconButton 
+              size="small" 
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditProject(project);
+              }}
+            >
               <SettingsIcon />
             </IconButton>
           )}
@@ -140,14 +192,6 @@ const Projects = () => {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
           Mis Proyectos
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateModalOpen(true)}
-          sx={{ borderRadius: 3 }}
-        >
-          Nuevo Proyecto
-        </Button>
       </Box>
 
       {/* Proyectos donde soy Owner */}
@@ -196,11 +240,32 @@ const Projects = () => {
         )}
       </Box>
 
+      {/* Botón flotante para crear proyecto */}
+      <Fab
+        color="primary"
+        aria-label="add"
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        onClick={() => setCreateModalOpen(true)}
+      >
+        <AddIcon />
+      </Fab>
+
       {/* Modal para crear proyecto */}
       <CreateProjectModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onProjectCreated={fetchProjects}
+      />
+
+      {/* Modal para editar proyecto */}
+      <EditProjectModal
+        open={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedProject(null);
+        }}
+        project={selectedProject}
+        onProjectUpdated={handleProjectUpdated}
       />
     </Container>
   );
