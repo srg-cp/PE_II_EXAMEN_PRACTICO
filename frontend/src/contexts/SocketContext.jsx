@@ -23,7 +23,9 @@ export const SocketProvider = ({ children }) => {
         auth: {
           userId: user.id,
           token: localStorage.getItem('token')
-        }
+        },
+        transports: ['websocket', 'polling'],
+        upgrade: true
       });
 
       newSocket.on('connect', () => {
@@ -34,6 +36,10 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('disconnect', () => {
         console.log('❌ Desconectado de Socket.io');
         setConnected(false);
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('❌ Error de conexión Socket.io:', error);
       });
 
       setSocket(newSocket);

@@ -21,7 +21,7 @@ const DocumentEditor = () => {
   const fetchDocument = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_URL}/api/documents/${documentId}`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/documents/${documentId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -37,7 +37,7 @@ const DocumentEditor = () => {
   const fetchProject = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_URL}/api/projects/${projectId}`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/projects/${projectId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getToken('token')}`

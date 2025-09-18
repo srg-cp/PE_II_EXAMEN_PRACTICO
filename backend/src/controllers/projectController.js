@@ -125,7 +125,79 @@ const getProjects = async (req, res) => {
   }
 };
 
-// Obtener proyecto por ID
+// Obtener secciones del proyecto
+const getProjectSections = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    // Verificar que el usuario tenga acceso
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Si no existen secciones, crear estructura por defecto
+    const defaultSections = {
+      mission: '',
+      vision: '',
+      objectives: [],
+      swot: {
+        strengths: [],
+        weaknesses: [],
+        opportunities: [],
+        threats: []
+      },
+      strategy: '',
+      conclusions: ''
+    };
+
+    const sections = project.sections || defaultSections;
+    res.json(sections);
+  } catch (error) {
+    console.error('Error obteniendo secciones del proyecto:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar secciones del proyecto
+const updateProjectSections = async (req, res) => {
+  try {
+    const { sections } = req.body;
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    // Verificar que el usuario tenga acceso
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Actualizar las secciones
+    project.sections = sections;
+    await project.save();
+
+    res.json({ 
+      message: 'Secciones actualizadas exitosamente',
+      sections: project.sections 
+    });
+  } catch (error) {
+    console.error('Error actualizando secciones del proyecto:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Obtener proyecto por ID (actualizado para devolver estructura correcta)
 const getProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -143,7 +215,8 @@ const getProject = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    res.json({ project });
+    // Devolver el proyecto directamente (no envuelto en objeto)
+    res.json(project);
   } catch (error) {
     console.error('Error obteniendo proyecto:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -309,5 +382,7 @@ module.exports = {
   updateProject,
   deleteProject,
   addMember,
-  removeMember
+  removeMember,
+  getProjectSections,
+  updateProjectSections
 };

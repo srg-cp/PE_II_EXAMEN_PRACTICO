@@ -3,6 +3,9 @@ const User = require('../models/User');
 const Board = require('../models/Board');
 const Document = require('../models/Document');
 
+// Almacenar usuarios activos por proyecto
+const activeUsers = new Map(); // projectId -> Set of user objects
+
 const socketHandler = (io) => {
   // Middleware de autenticación para sockets
   io.use(async (socket, next) => {
@@ -33,24 +36,124 @@ const socketHandler = (io) => {
     // Unirse a un proyecto
     socket.on('join-project', (projectId) => {
       socket.join(`project-${projectId}`);
+      socket.currentProject = projectId;
+      
+      // Agregar usuario a la lista de activos
+      if (!activeUsers.has(projectId)) {
+        activeUsers.set(projectId, new Set());
+      }
+      
+      const projectUsers = activeUsers.get(projectId);
+      projectUsers.add({
+        id: socket.userId,
+        name: socket.user.name,
+        email: socket.user.email,
+        avatar: socket.user.avatar || null,
+        socketId: socket.id,
+        joinedAt: new Date()
+      });
+      
       console.log(`👥 Usuario ${socket.user.name} se unió al proyecto ${projectId}`);
+      
+      // Enviar lista actualizada de usuarios conectados a todos
+      const usersList = Array.from(projectUsers);
+      io.to(`project-${projectId}`).emit('active-users-updated', {
+        users: usersList,
+        totalUsers: usersList.length
+      });
       
       // Notificar a otros usuarios del proyecto
       socket.to(`project-${projectId}`).emit('user-joined', {
         userId: socket.userId,
-        userName: socket.user.name
+        userName: socket.user.name,
+        userEmail: socket.user.email,
+        avatar: socket.user.avatar
       });
     });
 
     // Salir de un proyecto
     socket.on('leave-project', (projectId) => {
       socket.leave(`project-${projectId}`);
+      
+      // Remover usuario de la lista de activos
+      if (activeUsers.has(projectId)) {
+        const projectUsers = activeUsers.get(projectId);
+        projectUsers.forEach(user => {
+          if (user.socketId === socket.id) {
+            projectUsers.delete(user);
+          }
+        });
+        
+        // Enviar lista actualizada
+        const usersList = Array.from(projectUsers);
+        io.to(`project-${projectId}`).emit('active-users-updated', {
+          users: usersList,
+          totalUsers: usersList.length
+        });
+      }
+      
       console.log(`👋 Usuario ${socket.user.name} salió del proyecto ${projectId}`);
       
       // Notificar a otros usuarios del proyecto
       socket.to(`project-${projectId}`).emit('user-left', {
         userId: socket.userId,
         userName: socket.user.name
+      });
+    });
+
+    // Nuevo evento para actualización de secciones del proyecto
+    socket.on('project-section-update', async (data) => {
+      try {
+        const { projectId, sectionKey, content, changeType } = data;
+        
+        // Crear entrada en el historial
+        const historyEntry = {
+          id: Date.now(),
+          sectionKey,
+          changeType, // 'edit', 'add', 'delete'
+          content,
+          timestamp: new Date(),
+          user: {
+            id: socket.userId,
+            name: socket.user.name,
+            email: socket.user.email
+          },
+          preview: content ? content.substring(0, 100) + '...' : ''
+        };
+        
+        // Emitir cambios a todos los usuarios del proyecto excepto al emisor
+        socket.to(`project-${projectId}`).emit('project-section-updated', {
+          sectionKey,
+          content,
+          changeType,
+          updatedBy: {
+            id: socket.userId,
+            name: socket.user.name,
+            email: socket.user.email
+          },
+          timestamp: new Date()
+        });
+        
+        // Emitir nueva entrada del historial
+        io.to(`project-${projectId}`).emit('history-entry-added', historyEntry);
+        
+      } catch (error) {
+        console.error('Error actualizando sección del proyecto:', error);
+        socket.emit('error', { message: 'Error actualizando sección del proyecto' });
+      }
+    });
+
+    // Evento para indicar que un usuario está editando una sección
+    socket.on('section-editing', (data) => {
+      const { projectId, sectionKey, isEditing } = data;
+      socket.to(`project-${projectId}`).emit('user-editing-section', {
+        sectionKey,
+        isEditing,
+        user: {
+          id: socket.userId,
+          name: socket.user.name,
+          email: socket.user.email
+        }
       });
     });
 
@@ -135,6 +238,294 @@ const socketHandler = (io) => {
     // Desconexión
     socket.on('disconnect', () => {
       console.log(`❌ Usuario desconectado: ${socket.user.name}`);
+      
+      // Remover usuario de todos los proyectos activos
+      if (socket.currentProject) {
+        const projectId = socket.currentProject;
+        if (activeUsers.has(projectId)) {
+          const projectUsers = activeUsers.get(projectId);
+          projectUsers.forEach(user => {
+            if (user.socketId === socket.id) {
+              projectUsers.delete(user);
+            }
+          });
+          
+          // Enviar lista actualizada
+          const usersList = Array.from(projectUsers);
+          io.to(`project-${projectId}`).emit('active-users-updated', {
+            users: usersList,
+            totalUsers: usersList.length
+          });
+        }
+      }
+    });
+  });
+};
+
+// Agregar al final del archivo, antes de module.exports
+
+// Mapa para trackear usuarios conectados por proyecto
+const connectedUsersByProject = new Map();
+
+// Función para agregar usuario a un proyecto
+const addUserToProject = (projectId, userInfo) => {
+  if (!connectedUsersByProject.has(projectId)) {
+    connectedUsersByProject.set(projectId, new Map());
+  }
+  connectedUsersByProject.get(projectId).set(userInfo.id, {
+    ...userInfo,
+    connectedAt: new Date()
+  });
+};
+
+// Función para remover usuario de un proyecto
+const removeUserFromProject = (projectId, userId) => {
+  if (connectedUsersByProject.has(projectId)) {
+    connectedUsersByProject.get(projectId).delete(userId);
+    if (connectedUsersByProject.get(projectId).size === 0) {
+      connectedUsersByProject.delete(projectId);
+    }
+  }
+};
+
+// Función para obtener usuarios conectados de un proyecto
+const getConnectedUsers = (projectId) => {
+  if (!connectedUsersByProject.has(projectId)) {
+    return [];
+  }
+  return Array.from(connectedUsersByProject.get(projectId).values());
+};
+
+// Agregar estos eventos al socket handler existente
+module.exports = (io) => {
+  io.on('connection', (socket) => {
+    console.log(`✅ Usuario conectado: ${socket.user.name} (${socket.userId})`);
+
+    // Unirse a un proyecto
+    socket.on('join-project', (projectId) => {
+      socket.join(`project-${projectId}`);
+      socket.currentProject = projectId;
+      
+      // Agregar usuario a la lista de activos
+      if (!activeUsers.has(projectId)) {
+        activeUsers.set(projectId, new Set());
+      }
+      
+      const projectUsers = activeUsers.get(projectId);
+      projectUsers.add({
+        id: socket.userId,
+        name: socket.user.name,
+        email: socket.user.email,
+        avatar: socket.user.avatar || null,
+        socketId: socket.id,
+        joinedAt: new Date()
+      });
+      
+      console.log(`👥 Usuario ${socket.user.name} se unió al proyecto ${projectId}`);
+      
+      // Enviar lista actualizada de usuarios conectados a todos
+      const usersList = Array.from(projectUsers);
+      io.to(`project-${projectId}`).emit('active-users-updated', {
+        users: usersList,
+        totalUsers: usersList.length
+      });
+      
+      // Notificar a otros usuarios del proyecto
+      socket.to(`project-${projectId}`).emit('user-joined', {
+        userId: socket.userId,
+        userName: socket.user.name,
+        userEmail: socket.user.email,
+        avatar: socket.user.avatar
+      });
+    });
+
+    // Salir de un proyecto
+    socket.on('leave-project', (projectId) => {
+      socket.leave(`project-${projectId}`);
+      
+      // Remover usuario de la lista de activos
+      if (activeUsers.has(projectId)) {
+        const projectUsers = activeUsers.get(projectId);
+        projectUsers.forEach(user => {
+          if (user.socketId === socket.id) {
+            projectUsers.delete(user);
+          }
+        });
+        
+        // Enviar lista actualizada
+        const usersList = Array.from(projectUsers);
+        io.to(`project-${projectId}`).emit('active-users-updated', {
+          users: usersList,
+          totalUsers: usersList.length
+        });
+      }
+      
+      console.log(`👋 Usuario ${socket.user.name} salió del proyecto ${projectId}`);
+      
+      // Notificar a otros usuarios del proyecto
+      socket.to(`project-${projectId}`).emit('user-left', {
+        userId: socket.userId,
+        userName: socket.user.name
+      });
+    });
+
+    // Nuevo evento para actualización de secciones del proyecto
+    socket.on('project-section-update', async (data) => {
+      try {
+        const { projectId, sectionKey, content, changeType } = data;
+        
+        // Crear entrada en el historial
+        const historyEntry = {
+          id: Date.now(),
+          sectionKey,
+          changeType, // 'edit', 'add', 'delete'
+          content,
+          timestamp: new Date(),
+          user: {
+            id: socket.userId,
+            name: socket.user.name,
+            email: socket.user.email
+          },
+          preview: content ? content.substring(0, 100) + '...' : ''
+        };
+        
+        // Emitir cambios a todos los usuarios del proyecto excepto al emisor
+        socket.to(`project-${projectId}`).emit('project-section-updated', {
+          sectionKey,
+          content,
+          changeType,
+          updatedBy: {
+            id: socket.userId,
+            name: socket.user.name,
+            email: socket.user.email
+          },
+          timestamp: new Date()
+        });
+        
+        // Emitir nueva entrada del historial
+        io.to(`project-${projectId}`).emit('history-entry-added', historyEntry);
+        
+      } catch (error) {
+        console.error('Error actualizando sección del proyecto:', error);
+        socket.emit('error', { message: 'Error actualizando sección del proyecto' });
+      }
+    });
+
+    // Evento para indicar que un usuario está editando una sección
+    socket.on('section-editing', (data) => {
+      const { projectId, sectionKey, isEditing } = data;
+      socket.to(`project-${projectId}`).emit('user-editing-section', {
+        sectionKey,
+        isEditing,
+        user: {
+          id: socket.userId,
+          name: socket.user.name,
+          email: socket.user.email
+        }
+      });
+    });
+
+    // Eventos del tablero Kanban
+    socket.on('board-update', async (data) => {
+      try {
+        const { projectId, boardData } = data;
+        
+        // Actualizar el tablero en la base de datos
+        await Board.findOneAndUpdate(
+          { project: projectId },
+          { lists: boardData.lists },
+          { new: true, upsert: true }
+        );
+
+        // Emitir cambios a todos los usuarios del proyecto excepto al emisor
+        socket.to(`project-${projectId}`).emit('board-updated', {
+          boardData,
+          updatedBy: {
+            id: socket.userId,
+            name: socket.user.name
+          }
+        });
+      } catch (error) {
+        console.error('Error actualizando tablero:', error);
+        socket.emit('error', { message: 'Error actualizando tablero' });
+      }
+    });
+
+    // Eventos del editor colaborativo
+    socket.on('document-edit', async (data) => {
+      try {
+        const { projectId, documentId, content, type } = data;
+        
+        // Actualizar documento en la base de datos
+        const document = await Document.findOneAndUpdate(
+          { _id: documentId, project: projectId },
+          { 
+            content,
+            lastEditedBy: socket.userId,
+            $inc: { version: 1 }
+          },
+          { new: true, upsert: true }
+        );
+
+        // Guardar en historial
+        document.history.push({
+          content,
+          editedBy: socket.userId,
+          version: document.version
+        });
+        await document.save();
+
+        // Emitir cambios a todos los usuarios del proyecto excepto al emisor
+        socket.to(`project-${projectId}`).emit('document-updated', {
+          documentId,
+          content,
+          type,
+          updatedBy: {
+            id: socket.userId,
+            name: socket.user.name
+          },
+          version: document.version
+        });
+      } catch (error) {
+        console.error('Error actualizando documento:', error);
+        socket.emit('error', { message: 'Error actualizando documento' });
+      }
+    });
+
+    // Cursor en tiempo real para el editor
+    socket.on('cursor-position', (data) => {
+      const { projectId, documentId, position } = data;
+      socket.to(`project-${projectId}`).emit('cursor-updated', {
+        documentId,
+        userId: socket.userId,
+        userName: socket.user.name,
+        position
+      });
+    });
+
+    // Desconexión
+    socket.on('disconnect', () => {
+      console.log(`❌ Usuario desconectado: ${socket.user.name}`);
+      
+      // Remover usuario de todos los proyectos activos
+      if (socket.currentProject) {
+        const projectId = socket.currentProject;
+        if (activeUsers.has(projectId)) {
+          const projectUsers = activeUsers.get(projectId);
+          projectUsers.forEach(user => {
+            if (user.socketId === socket.id) {
+              projectUsers.delete(user);
+            }
+          });
+          
+          // Enviar lista actualizada
+          const usersList = Array.from(projectUsers);
+          io.to(`project-${projectId}`).emit('active-users-updated', {
+            users: usersList,
+            totalUsers: usersList.length
+          });
+        }
+      }
     });
   });
 };

@@ -7,7 +7,9 @@ const {
   updateProject,
   deleteProject,
   addMember,
-  removeMember
+  removeMember,
+  getProjectSections,
+  updateProjectSections
 } = require('../controllers/projectController');
 const auth = require('../middleware/auth');
 
@@ -53,6 +55,16 @@ router.get('/', auth, getProjects);
 // @desc    Obtener proyecto por ID
 // @access  Private
 router.get('/:id', auth, getProject);
+
+// @route   GET /api/projects/:id/sections
+// @desc    Obtener secciones del proyecto
+// @access  Private
+router.get('/:id/sections', auth, getProjectSections);
+
+// @route   PUT /api/projects/:id/sections
+// @desc    Actualizar secciones del proyecto
+// @access  Private
+router.put('/:id/sections', auth, updateProjectSections);
 
 // @route   PUT /api/projects/:id
 // @desc    Actualizar proyecto

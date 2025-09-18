@@ -18,6 +18,73 @@ const projectSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Nuevos campos para las secciones del proyecto
+  sections: {
+    mission: {
+      type: String,
+      default: ''
+    },
+    vision: {
+      type: String,
+      default: ''
+    },
+    objectives: {
+      type: [{
+        id: Number,
+        title: String,
+        description: String,
+        priority: {
+          type: String,
+          enum: ['low', 'medium', 'high'],
+          default: 'medium'
+        },
+        status: {
+          type: String,
+          enum: ['pending', 'in_progress', 'completed'],
+          default: 'pending'
+        }
+      }],
+      default: []
+    },
+    swot: {
+      strengths: {
+        type: [{
+          id: Number,
+          text: String
+        }],
+        default: []
+      },
+      weaknesses: {
+        type: [{
+          id: Number,
+          text: String
+        }],
+        default: []
+      },
+      opportunities: {
+        type: [{
+          id: Number,
+          text: String
+        }],
+        default: []
+      },
+      threats: {
+        type: [{
+          id: Number,
+          text: String
+        }],
+        default: []
+      }
+    },
+    strategy: {
+      type: String,
+      default: ''
+    },
+    conclusions: {
+      type: String,
+      default: ''
+    }
+  },
   timeline: {
     startDate: {
       type: Date
