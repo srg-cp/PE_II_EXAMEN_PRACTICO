@@ -20,6 +20,11 @@ import 'react-quill/dist/quill.snow.css';
 import { useSocket } from '../contexts/SocketContext';
 import ConnectedUsers from '../components/ConnectedUsers/ConnectedUsers';
 import ChangeHistoryPanel from '../components/ChangeHistory/ChangeHistoryPanel';
+// Agregar imports para PDF
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+// Agregar import para iconos Material Design
+import { Download } from '@mui/icons-material';
 
 const ProjectBoard = () => {
   // Cambiar projectId por id para que coincida con la ruta
@@ -116,6 +121,15 @@ const ProjectBoard = () => {
   };
 
   const handleTabChange = (event, newValue) => {
+    // Limpiar el estado de edición antes de cambiar de tab
+    if (editingSection && socket) {
+      socket.emit('section-editing', {
+        projectId,
+        sectionKey: editingSection,
+        isEditing: false
+      });
+    }
+    setEditingSection(null);
     setCurrentTab(newValue);
   };
 
@@ -160,13 +174,19 @@ const ProjectBoard = () => {
   };
 
   const handleSectionBlur = () => {
-    if (editingSection && socket) {
-      socket.emit('section-editing', {
-        projectId,
-        sectionKey: editingSection,
-        isEditing: false
-      });
-    }
+    // Agregar este useEffect después de los otros useEffect
+    useEffect(() => {
+      return () => {
+        // Limpiar estado de edición al desmontar el componente
+        if (editingSection && socket) {
+          socket.emit('section-editing', {
+            projectId,
+            sectionKey: editingSection,
+            isEditing: false
+          });
+        }
+      };
+    }, [editingSection, socket, projectId]);
     setEditingSection(null);
   };
 
@@ -226,28 +246,32 @@ const ProjectBoard = () => {
     updateSection('swot', updatedSwot);
   };
 
-  const renderMissionVision = (sectionKey) => (
-    <Paper sx={{ p: 3, mt: 2 }}>
-      <ReactQuill
-        theme="snow"
-        value={sections[sectionKey]}
-        onChange={(value) => updateSection(sectionKey, value)}
-        onFocus={() => handleSectionFocus(sectionKey)}
-        onBlur={handleSectionBlur}
-        placeholder={`Describe la ${sectionKey === 'mission' ? 'misión' : 'visión'} del proyecto...`}
-        style={{ minHeight: '200px' }}
-        modules={{
-          toolbar: [
-            [{ 'header': [1, 2, false] }],
-            ['bold', 'italic', 'underline'],
-            ['link'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['clean']
-          ]
-        }}
-      />
-    </Paper>
-  );
+  const renderMissionVision = (sectionKey) => {
+    console.log('renderMissionVision sectionKey:', sectionKey); // Puedes quitar este debug después
+    return (
+      <Paper sx={{ p: 3, mt: 2 }}>
+        <ReactQuill
+          key={sectionKey}
+          theme="snow"
+          value={sections[sectionKey]}
+          onChange={(value) => updateSection(sectionKey, value)}
+          onFocus={() => handleSectionFocus(sectionKey)}
+          onBlur={handleSectionBlur}
+          placeholder={`Describe la ${sectionKey === 'mission' ? 'misión' : 'visión'} del proyecto...`}
+          style={{ minHeight: '200px' }}
+          modules={{
+            toolbar: [
+              [{ 'header': [1, 2, false] }],
+              ['bold', 'italic', 'underline'],
+              ['link'],
+              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+              ['clean']
+            ]
+          }}
+        />
+      </Paper>
+    );
+  };
 
   const renderObjectives = () => (
     <Paper sx={{ p: 3, mt: 2 }}>
@@ -365,12 +389,13 @@ const ProjectBoard = () => {
   const renderStrategyConclusions = (sectionKey) => (
     <Paper sx={{ p: 3, mt: 2 }}>
       <ReactQuill
+        key={sectionKey}
         theme="snow"
         value={sections[sectionKey]}
         onChange={(value) => updateSection(sectionKey, value)}
         onFocus={() => handleSectionFocus(sectionKey)}
         onBlur={handleSectionBlur}
-        placeholder={`Describe la ${sectionKey === 'strategy' ? 'estrategia' : 'conclusiones'} del proyecto...`}
+        placeholder={`Describe ${sectionKey === 'strategy' ? 'la estrategia' : 'las conclusiones'} del proyecto...`}
         style={{ minHeight: '300px' }}
         modules={{
           toolbar: [
@@ -404,6 +429,221 @@ const ProjectBoard = () => {
     }
   };
 
+  // MOVER la función generatePDF AQUÍ DENTRO del componente
+  const generatePDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+      
+      // Función auxiliar para agregar texto con salto de línea automático
+      const addTextWithWrap = (text, x, y, maxWidth, fontSize = 12) => {
+        pdf.setFontSize(fontSize);
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, x, y);
+        return y + (lines.length * fontSize * 0.35);
+      };
+      
+      // Función para agregar nueva página si es necesario
+      const checkPageBreak = (requiredSpace) => {
+        if (yPosition + requiredSpace > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+      };
+      
+      // Título principal
+      pdf.setFontSize(20);
+      pdf.setFont(undefined, 'bold');
+      pdf.text('RESUMEN EJECUTIVO PLAN ESTRATÉGICO', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+      
+      // Información del proyecto
+      if (project) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('INFORMACIÓN DEL PROYECTO', margin, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        yPosition = addTextWithWrap(`Nombre: ${project.name}`, margin, yPosition, pageWidth - 2 * margin);
+        yPosition += 5;
+        
+        if (project.description) {
+          yPosition = addTextWithWrap(`Descripción: ${project.description}`, margin, yPosition, pageWidth - 2 * margin);
+          yPosition += 10;
+        }
+        
+        // Participantes
+        if (project.participants && project.participants.length > 0) {
+          checkPageBreak(20);
+          pdf.setFont(undefined, 'bold');
+          yPosition = addTextWithWrap('Participantes:', margin, yPosition, pageWidth - 2 * margin, 12);
+          yPosition += 5;
+          
+          pdf.setFont(undefined, 'normal');
+          project.participants.forEach(participant => {
+            yPosition = addTextWithWrap(`• ${participant.name || participant.email}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
+            yPosition += 3;
+          });
+          yPosition += 10;
+        }
+      }
+      
+      // Función para limpiar HTML y obtener texto plano
+      const cleanHtmlContent = (htmlContent) => {
+        if (!htmlContent) return '';
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        return tempDiv.textContent || tempDiv.innerText || '';
+      };
+      
+      // Misión
+      if (sections.mission) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('MISIÓN', margin, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        const missionText = cleanHtmlContent(sections.mission);
+        yPosition = addTextWithWrap(missionText, margin, yPosition, pageWidth - 2 * margin);
+        yPosition += 15;
+      }
+      
+      // Visión
+      if (sections.vision) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('VISIÓN', margin, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        const visionText = cleanHtmlContent(sections.vision);
+        yPosition = addTextWithWrap(visionText, margin, yPosition, pageWidth - 2 * margin);
+        yPosition += 15;
+      }
+      
+      // Objetivos
+      if (sections.objectives && sections.objectives.length > 0) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('OBJETIVOS', margin, yPosition);
+        yPosition += 10;
+        
+        sections.objectives.forEach((objective, index) => {
+          checkPageBreak(25);
+          pdf.setFontSize(12);
+          pdf.setFont(undefined, 'bold');
+          yPosition = addTextWithWrap(`${index + 1}. ${objective.title}`, margin, yPosition, pageWidth - 2 * margin);
+          yPosition += 5;
+          
+          pdf.setFont(undefined, 'normal');
+          if (objective.description) {
+            yPosition = addTextWithWrap(`Descripción: ${objective.description}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
+            yPosition += 3;
+          }
+          
+          const priorityText = objective.priority === 'high' ? 'Alta' : objective.priority === 'medium' ? 'Media' : 'Baja';
+          const statusText = objective.status === 'completed' ? 'Completado' : objective.status === 'in_progress' ? 'En Progreso' : 'Pendiente';
+          
+          yPosition = addTextWithWrap(`Prioridad: ${priorityText} | Estado: ${statusText}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
+          yPosition += 10;
+        });
+      }
+      
+      // Análisis FODA
+      const swotCategories = [
+        { key: 'strengths', label: 'FORTALEZAS' },
+        { key: 'weaknesses', label: 'DEBILIDADES' },
+        { key: 'opportunities', label: 'OPORTUNIDADES' },
+        { key: 'threats', label: 'AMENAZAS' }
+      ];
+      
+      const hasSwotContent = swotCategories.some(cat => sections.swot[cat.key] && sections.swot[cat.key].length > 0);
+      
+      if (hasSwotContent) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('ANÁLISIS FODA', margin, yPosition);
+        yPosition += 10;
+        
+        swotCategories.forEach(category => {
+          if (sections.swot[category.key] && sections.swot[category.key].length > 0) {
+            checkPageBreak(20);
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(category.label, margin, yPosition);
+            yPosition += 8;
+            
+            pdf.setFontSize(12);
+            pdf.setFont(undefined, 'normal');
+            sections.swot[category.key].forEach(item => {
+              if (item.text && item.text.trim()) {
+                yPosition = addTextWithWrap(`• ${item.text}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
+                yPosition += 3;
+              }
+            });
+            yPosition += 8;
+          }
+        });
+      }
+      
+      // Estrategia
+      if (sections.strategy) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('IDENTIFICACIÓN DE ESTRATEGIA', margin, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        const strategyText = cleanHtmlContent(sections.strategy);
+        yPosition = addTextWithWrap(strategyText, margin, yPosition, pageWidth - 2 * margin);
+        yPosition += 15;
+      }
+      
+      // Conclusiones
+      if (sections.conclusions) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('CONCLUSIONES', margin, yPosition);
+        yPosition += 10;
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'normal');
+        const conclusionsText = cleanHtmlContent(sections.conclusions);
+        yPosition = addTextWithWrap(conclusionsText, margin, yPosition, pageWidth - 2 * margin);
+      }
+      
+      // Pie de página con fecha
+      const currentDate = new Date().toLocaleDateString('es-ES');
+      pdf.setFontSize(10);
+      pdf.setFont(undefined, 'italic');
+      pdf.text(`Generado el ${currentDate}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      
+      // Descargar el PDF
+      const fileName = `Resumen_Ejecutivo_${project?.name?.replace(/\s+/g, '_') || 'Plan_Estrategico'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
+    }
+  };
+
   if (loading) {
     return (
       <Container sx={{ mt: 4, textAlign: 'center' }}>
@@ -426,6 +666,35 @@ const ProjectBoard = () => {
           <Typography variant="subtitle1" color="text.secondary">
             {project?.description}
           </Typography>
+          {/* Botón de descarga PDF con Material Design 3 */}
+          <Box sx={{ mt: 3 }}>
+            <Button 
+              variant="contained" 
+              startIcon={<Download />}
+              onClick={generatePDF}
+              sx={{ 
+                borderRadius: '20px',
+                textTransform: 'none',
+                fontWeight: 500,
+                px: 3,
+                py: 1.5,
+                backgroundColor: 'primary.main',
+                boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.15), 0px 1px 4px rgba(0, 0, 0, 0.3)',
+                  transform: 'translateY(-1px)'
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)'
+                },
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            >
+              Descargar Resumen Ejecutivo PDF
+            </Button>
+          </Box>
         </Box>
 
         <Box>
@@ -443,3 +712,6 @@ const ProjectBoard = () => {
 };
 
 export default ProjectBoard;
+
+  
+  
