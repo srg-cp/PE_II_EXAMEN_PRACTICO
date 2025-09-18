@@ -86,4 +86,130 @@ router.post('/:id/members', auth, addMember);
 // @access  Private
 router.delete('/:id/members/:userId', auth, removeMember);
 
+// Agregar estas rutas después de las existentes
+
+// @route   GET /api/projects/:id/history
+// @desc    Obtener historial de cambios del proyecto
+// @access  Private
+router.get('/:id/history', auth, async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+    const {
+      sectionKey,
+      page = 1,
+      limit = 20,
+      userId,
+      changeType,
+      startDate,
+      endDate
+    } = req.query;
+
+    // Verificar acceso al proyecto
+    const Project = require('../models/Project');
+    const project = await Project.findById(projectId);
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    const ChangeHistory = require('../models/ChangeHistory');
+    const result = await ChangeHistory.getHistory(projectId, {
+      sectionKey,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      userId,
+      changeType,
+      startDate,
+      endDate
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching project history:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// @route   POST /api/projects/:id/history/:historyId/revert
+// @desc    Revertir un cambio específico
+// @access  Private
+router.post('/:id/history/:historyId/revert', auth, async (req, res) => {
+  try {
+    const { id: projectId, historyId } = req.params;
+    
+    const ChangeHistory = require('../models/ChangeHistory');
+    const Project = require('../models/Project');
+    
+    // Verificar acceso
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    const hasAccess = project.owner.toString() === req.user._id.toString() ||
+                     project.members.some(member => member.toString() === req.user._id.toString());
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    // Encontrar la entrada del historial
+    const historyEntry = await ChangeHistory.findById(historyId);
+    if (!historyEntry) {
+      return res.status(404).json({ message: 'Entrada de historial no encontrada' });
+    }
+
+    // Revertir el cambio
+    const sectionKey = historyEntry.sectionKey;
+    const previousContent = historyEntry.content.before;
+    
+    // Actualizar el proyecto
+    if (sectionKey !== 'general') {
+      project.sections[sectionKey] = previousContent;
+      await project.save();
+    }
+
+    // Crear nueva entrada de historial para la reversión
+    await ChangeHistory.createEntry({
+      projectId,
+      sectionKey,
+      changeType: 'restore',
+      content: {
+        before: historyEntry.content.after,
+        after: previousContent
+      },
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email
+      },
+      metadata: {
+        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip
+      }
+    });
+
+    // Marcar la entrada original como revertida
+    historyEntry.isReverted = true;
+    historyEntry.revertedBy = req.user._id;
+    historyEntry.revertedAt = new Date();
+    await historyEntry.save();
+
+    res.json({ 
+      message: 'Cambio revertido exitosamente',
+      content: previousContent
+    });
+  } catch (error) {
+    console.error('Error reverting change:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;

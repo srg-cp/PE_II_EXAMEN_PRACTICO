@@ -183,6 +183,37 @@ const updateProjectSections = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
+    // Registrar cambios en el historial
+    const ChangeHistory = require('../models/ChangeHistory');
+    const oldSections = project.sections || {};
+    
+    // Comparar y registrar cambios por sección
+    for (const [sectionKey, newContent] of Object.entries(sections)) {
+      const oldContent = oldSections[sectionKey];
+      
+      // Solo registrar si hay cambios
+      if (JSON.stringify(oldContent) !== JSON.stringify(newContent)) {
+        await ChangeHistory.createEntry({
+          projectId: req.params.id,
+          sectionKey,
+          changeType: oldContent ? 'edit' : 'create',
+          content: {
+            before: oldContent,
+            after: newContent
+          },
+          user: {
+            id: req.user._id,
+            name: req.user.name,
+            email: req.user.email
+          },
+          metadata: {
+            userAgent: req.get('User-Agent'),
+            ipAddress: req.ip
+          }
+        });
+      }
+    }
+
     // Actualizar las secciones
     project.sections = sections;
     await project.save();

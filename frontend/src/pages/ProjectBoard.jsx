@@ -20,9 +20,8 @@ import 'react-quill/dist/quill.snow.css';
 import { useSocket } from '../contexts/SocketContext';
 import ConnectedUsers from '../components/ConnectedUsers/ConnectedUsers';
 import ChangeHistoryPanel from '../components/ChangeHistory/ChangeHistoryPanel';
-// Agregar imports para PDF
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+// Importar la función mejorada de PDF
+import { exportProjectToPDF } from '../utils/pdfExport';
 // Agregar import para iconos Material Design
 import { Download } from '@mui/icons-material';
 
@@ -429,214 +428,36 @@ const ProjectBoard = () => {
     }
   };
 
-  // MOVER la función generatePDF AQUÍ DENTRO del componente
+  // Reemplazar la función generatePDF con la función mejorada
   const generatePDF = async () => {
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 20;
-      let yPosition = margin;
-      
-      // Función auxiliar para agregar texto con salto de línea automático
-      const addTextWithWrap = (text, x, y, maxWidth, fontSize = 12) => {
-        pdf.setFontSize(fontSize);
-        const lines = pdf.splitTextToSize(text, maxWidth);
-        pdf.text(lines, x, y);
-        return y + (lines.length * fontSize * 0.35);
+      // Preparar los datos del proyecto en el formato correcto
+      const projectData = {
+        name: project?.name || 'Proyecto Sin Título',
+        description: project?.description || '',
+        image: project?.image || '', // Incluir la imagen del proyecto
+        status: project?.status || 'draft',
+        timeline: project?.timeline || {},
+        sections: {
+          mission: sections.mission,
+          vision: sections.vision,
+          objectives: sections.objectives,
+          swot: sections.swot,
+          strategy: sections.strategy,
+          conclusions: sections.conclusions
+        },
+        documents: project?.documents || []
       };
+
+      // Usar la función mejorada de exportación
+      const result = await exportProjectToPDF(projectData);
       
-      // Función para agregar nueva página si es necesario
-      const checkPageBreak = (requiredSpace) => {
-        if (yPosition + requiredSpace > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-        }
-      };
-      
-      // Título principal
-      pdf.setFontSize(20);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('RESUMEN EJECUTIVO PLAN ESTRATÉGICO', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 15;
-      
-      // Información del proyecto
-      if (project) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('INFORMACIÓN DEL PROYECTO', margin, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont(undefined, 'normal');
-        yPosition = addTextWithWrap(`Nombre: ${project.name}`, margin, yPosition, pageWidth - 2 * margin);
-        yPosition += 5;
-        
-        if (project.description) {
-          yPosition = addTextWithWrap(`Descripción: ${project.description}`, margin, yPosition, pageWidth - 2 * margin);
-          yPosition += 10;
-        }
-        
-        // Participantes
-        if (project.participants && project.participants.length > 0) {
-          checkPageBreak(20);
-          pdf.setFont(undefined, 'bold');
-          yPosition = addTextWithWrap('Participantes:', margin, yPosition, pageWidth - 2 * margin, 12);
-          yPosition += 5;
-          
-          pdf.setFont(undefined, 'normal');
-          project.participants.forEach(participant => {
-            yPosition = addTextWithWrap(`• ${participant.name || participant.email}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-            yPosition += 3;
-          });
-          yPosition += 10;
-        }
+      if (result.success) {
+        console.log('PDF generado exitosamente:', result.fileName);
+      } else {
+        console.error('Error generando PDF:', result.error);
+        alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
       }
-      
-      // Función para limpiar HTML y obtener texto plano
-      const cleanHtmlContent = (htmlContent) => {
-        if (!htmlContent) return '';
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlContent;
-        return tempDiv.textContent || tempDiv.innerText || '';
-      };
-      
-      // Misión
-      if (sections.mission) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('MISIÓN', margin, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont(undefined, 'normal');
-        const missionText = cleanHtmlContent(sections.mission);
-        yPosition = addTextWithWrap(missionText, margin, yPosition, pageWidth - 2 * margin);
-        yPosition += 15;
-      }
-      
-      // Visión
-      if (sections.vision) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('VISIÓN', margin, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont(undefined, 'normal');
-        const visionText = cleanHtmlContent(sections.vision);
-        yPosition = addTextWithWrap(visionText, margin, yPosition, pageWidth - 2 * margin);
-        yPosition += 15;
-      }
-      
-      // Objetivos
-      if (sections.objectives && sections.objectives.length > 0) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('OBJETIVOS', margin, yPosition);
-        yPosition += 10;
-        
-        sections.objectives.forEach((objective, index) => {
-          checkPageBreak(25);
-          pdf.setFontSize(12);
-          pdf.setFont(undefined, 'bold');
-          yPosition = addTextWithWrap(`${index + 1}. ${objective.title}`, margin, yPosition, pageWidth - 2 * margin);
-          yPosition += 5;
-          
-          pdf.setFont(undefined, 'normal');
-          if (objective.description) {
-            yPosition = addTextWithWrap(`Descripción: ${objective.description}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-            yPosition += 3;
-          }
-          
-          const priorityText = objective.priority === 'high' ? 'Alta' : objective.priority === 'medium' ? 'Media' : 'Baja';
-          const statusText = objective.status === 'completed' ? 'Completado' : objective.status === 'in_progress' ? 'En Progreso' : 'Pendiente';
-          
-          yPosition = addTextWithWrap(`Prioridad: ${priorityText} | Estado: ${statusText}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-          yPosition += 10;
-        });
-      }
-      
-      // Análisis FODA
-      const swotCategories = [
-        { key: 'strengths', label: 'FORTALEZAS' },
-        { key: 'weaknesses', label: 'DEBILIDADES' },
-        { key: 'opportunities', label: 'OPORTUNIDADES' },
-        { key: 'threats', label: 'AMENAZAS' }
-      ];
-      
-      const hasSwotContent = swotCategories.some(cat => sections.swot[cat.key] && sections.swot[cat.key].length > 0);
-      
-      if (hasSwotContent) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('ANÁLISIS FODA', margin, yPosition);
-        yPosition += 10;
-        
-        swotCategories.forEach(category => {
-          if (sections.swot[category.key] && sections.swot[category.key].length > 0) {
-            checkPageBreak(20);
-            pdf.setFontSize(14);
-            pdf.setFont(undefined, 'bold');
-            pdf.text(category.label, margin, yPosition);
-            yPosition += 8;
-            
-            pdf.setFontSize(12);
-            pdf.setFont(undefined, 'normal');
-            sections.swot[category.key].forEach(item => {
-              if (item.text && item.text.trim()) {
-                yPosition = addTextWithWrap(`• ${item.text}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                yPosition += 3;
-              }
-            });
-            yPosition += 8;
-          }
-        });
-      }
-      
-      // Estrategia
-      if (sections.strategy) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('IDENTIFICACIÓN DE ESTRATEGIA', margin, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont(undefined, 'normal');
-        const strategyText = cleanHtmlContent(sections.strategy);
-        yPosition = addTextWithWrap(strategyText, margin, yPosition, pageWidth - 2 * margin);
-        yPosition += 15;
-      }
-      
-      // Conclusiones
-      if (sections.conclusions) {
-        checkPageBreak(30);
-        pdf.setFontSize(16);
-        pdf.setFont(undefined, 'bold');
-        pdf.text('CONCLUSIONES', margin, yPosition);
-        yPosition += 10;
-        
-        pdf.setFontSize(12);
-        pdf.setFont(undefined, 'normal');
-        const conclusionsText = cleanHtmlContent(sections.conclusions);
-        yPosition = addTextWithWrap(conclusionsText, margin, yPosition, pageWidth - 2 * margin);
-      }
-      
-      // Pie de página con fecha
-      const currentDate = new Date().toLocaleDateString('es-ES');
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'italic');
-      pdf.text(`Generado el ${currentDate}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      
-      // Descargar el PDF
-      const fileName = `Resumen_Ejecutivo_${project?.name?.replace(/\s+/g, '_') || 'Plan_Estrategico'}_${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
       
     } catch (error) {
       console.error('Error generando PDF:', error);

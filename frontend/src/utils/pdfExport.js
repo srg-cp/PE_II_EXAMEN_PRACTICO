@@ -8,125 +8,347 @@ export const exportProjectToPDF = async (projectData) => {
   const margin = 20;
   let yPosition = margin;
 
+  // Colores para el diseño
+  const primaryColor = [41, 128, 185]; // Azul profesional
+  const secondaryColor = [52, 73, 94]; // Gris oscuro
+  const accentColor = [231, 76, 60]; // Rojo para acentos
+  const lightGray = [236, 240, 241]; // Gris claro para fondos
+
   // Función para agregar texto con salto de página automático
-  const addText = (text, fontSize = 12, isBold = false) => {
+  const addText = (text, fontSize = 12, isBold = false, color = [0, 0, 0], align = 'left') => {
     pdf.setFontSize(fontSize);
     pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+    pdf.setTextColor(color[0], color[1], color[2]);
     
     const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
     
     lines.forEach(line => {
-      if (yPosition > pageHeight - margin) {
+      if (yPosition > pageHeight - margin - 20) {
         pdf.addPage();
         yPosition = margin;
       }
-      pdf.text(line, margin, yPosition);
-      yPosition += fontSize * 0.5;
+      
+      if (align === 'center') {
+        pdf.text(line, pageWidth / 2, yPosition, { align: 'center' });
+      } else if (align === 'right') {
+        pdf.text(line, pageWidth - margin, yPosition, { align: 'right' });
+      } else {
+        pdf.text(line, margin, yPosition);
+      }
+      
+      yPosition += fontSize * 0.6;
     });
     
-    yPosition += 5; // Espacio adicional
+    yPosition += 3; // Espacio adicional
   };
 
-  // Función para agregar sección
+  // Función para agregar línea decorativa
+  const addDecorativeLine = (color = primaryColor, thickness = 0.5) => {
+    pdf.setDrawColor(color[0], color[1], color[2]);
+    pdf.setLineWidth(thickness);
+    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
+  };
+
+  // Función para agregar sección con diseño mejorado
   const addSection = (title, content) => {
-    // Título de sección
-    addText(title, 16, true);
-    yPosition += 5;
+    // Verificar espacio para nueva sección
+    if (yPosition > pageHeight - 60) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+
+    // Fondo de la sección
+    pdf.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+    pdf.rect(margin - 5, yPosition - 5, pageWidth - 2 * margin + 10, 15, 'F');
+    
+    // Título de sección sin icono
+    addText(title, 16, true, primaryColor);
+    
+    // Línea decorativa bajo el título
+    addDecorativeLine(primaryColor, 1);
     
     // Contenido
     if (content) {
       // Remover HTML tags para el PDF
       const cleanContent = content.replace(/<[^>]*>/g, '').trim();
       if (cleanContent) {
-        addText(cleanContent, 11);
+        addText(cleanContent, 11, false, [0, 0, 0]);
       }
     }
     
-    yPosition += 10;
+    yPosition += 15;
+  };
+
+  // Función para agregar imagen del proyecto
+  const addProjectImage = async (imageData) => {
+    if (imageData && imageData.startsWith('data:image')) {
+      try {
+        const imgWidth = 60;
+        const imgHeight = 60;
+        const imgX = pageWidth - margin - imgWidth;
+        const imgY = 30;
+        
+        pdf.addImage(imageData, 'JPEG', imgX, imgY, imgWidth, imgHeight);
+        return true;
+      } catch (error) {
+        console.warn('Error agregando imagen:', error);
+        return false;
+      }
+    }
+    return false;
   };
 
   try {
-    // Portada
-    pdf.setFontSize(24);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Plan Estratégico de TI', pageWidth / 2, 50, { align: 'center' });
+    // === PORTADA MEJORADA ===
     
-    pdf.setFontSize(18);
-    pdf.text(projectData.title || 'Proyecto Sin Título', pageWidth / 2, 70, { align: 'center' });
+    // Fondo decorativo superior
+    pdf.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    pdf.rect(0, 0, pageWidth, 40, 'F');
+    
+    // Título principal
+    pdf.setFontSize(28);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('PLAN ESTRATÉGICO DE TI', pageWidth / 2, 25, { align: 'center' });
+    
+    yPosition = 60;
+    
+    // Agregar imagen del proyecto si existe
+    const hasImage = await addProjectImage(projectData.image);
+    
+    // Información del proyecto
+    pdf.setFontSize(22);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    const titleWidth = hasImage ? pageWidth - 140 : pageWidth - 40;
+    const titleLines = pdf.splitTextToSize(projectData.name || 'Proyecto Sin Título', titleWidth);
+    titleLines.forEach(line => {
+      pdf.text(line, margin, yPosition);
+      yPosition += 12;
+    });
+    
+    yPosition += 10;
+    
+    // Descripción del proyecto
+    if (projectData.description) {
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(100, 100, 100);
+      const descLines = pdf.splitTextToSize(projectData.description, pageWidth - 2 * margin);
+      descLines.forEach(line => {
+        pdf.text(line, margin, yPosition);
+        yPosition += 8;
+      });
+    }
+    
+    yPosition += 20;
+    
+    // Información de generación
+    pdf.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 25, 'F');
     
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Generado el: ${new Date().toLocaleDateString('es-ES')}`, pageWidth / 2, 90, { align: 'center' });
+    pdf.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    pdf.text(`Generado el: ${new Date().toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}`, margin + 10, yPosition + 10);
     
-    // Nueva página para el contenido
+    pdf.text(`Hora: ${new Date().toLocaleTimeString('es-ES')}`, margin + 10, yPosition + 20);
+    
+    // Pie de portada
+    yPosition = pageHeight - 40;
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text('MindPlan - Sistema de Planeamiento Estratégico de TI', pageWidth / 2, yPosition, { align: 'center' });
+    
+    // === NUEVA PÁGINA PARA ÍNDICE ===
+    pdf.addPage();
+    yPosition = margin;
+    
+    // Título del índice
+    pdf.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    pdf.rect(0, 0, pageWidth, 25, 'F');
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('ÍNDICE', pageWidth / 2, 17, { align: 'center' });
+    
+    yPosition = 40;
+    
+    // Elementos del índice con mejor formato
+    const indexItems = [
+      '1. Resumen Ejecutivo',
+      '2. Datos Generales del Proyecto',
+      '3. Misión Organizacional',
+      '4. Visión Estratégica',
+      '5. Objetivos Estratégicos',
+      '6. Análisis FODA',
+      '7. Estrategias de Implementación',
+      '8. Conclusiones'
+    ];
+    
+    indexItems.forEach((item, index) => {
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(item, margin + 10, yPosition);
+      
+      // Línea punteada
+      const dots = '.';
+      const dotWidth = pdf.getTextWidth(dots);
+      let dotX = margin + 10 + pdf.getTextWidth(item) + 5;
+      const pageNumX = pageWidth - margin - 20;
+      
+      while (dotX < pageNumX - 10) {
+        pdf.text(dots, dotX, yPosition);
+        dotX += dotWidth + 2;
+      }
+      
+      // Número de página (simulado)
+      pdf.text((index + 3).toString(), pageNumX, yPosition);
+      yPosition += 12;
+    });
+    
+    // === NUEVA PÁGINA PARA CONTENIDO ===
     pdf.addPage();
     yPosition = margin;
 
-    // Índice
-    addText('ÍNDICE', 18, true);
-    addText('1. Resumen Ejecutivo', 12);
-    addText('2. Datos Generales', 12);
-    addText('3. Misión', 12);
-    addText('4. Visión', 12);
-    addText('5. Objetivos', 12);
-    addText('6. Análisis FODA', 12);
-    addText('7. Estrategias', 12);
-    addText('8. Conclusiones', 12);
-    
-    yPosition += 20;
-
-    // Resumen Ejecutivo
+    // 1. Resumen Ejecutivo mejorado
     addSection('1. RESUMEN EJECUTIVO', 
-      `Este documento presenta el Plan Estratégico de Tecnologías de la Información para ${projectData.title || 'la organización'}. ` +
-      'El plan establece la dirección estratégica, objetivos y iniciativas clave para alinear la tecnología con los objetivos del negocio.'
+      `Este documento presenta el Plan Estratégico de Tecnologías de la Información para ${projectData.name || 'la organización'}. ` +
+      'El plan establece la dirección estratégica, objetivos y iniciativas clave para alinear la tecnología con los objetivos del negocio. ' +
+      'A través de un análisis exhaustivo de la situación actual y las necesidades futuras, se proponen estrategias innovadoras que ' +
+      'permitirán optimizar los recursos tecnológicos y mejorar la competitividad organizacional.',
+      '📋'
     );
 
-    // Procesar las listas del tablero
-    if (projectData.board && projectData.board.lists) {
-      projectData.board.lists.forEach((list, index) => {
-        const sectionNumber = index + 2;
-        let sectionTitle = `${sectionNumber}. ${list.title.toUpperCase()}`;
+    // 2. Datos Generales
+    let generalData = `Nombre del Proyecto: ${projectData.name || 'No especificado'}\n`;
+    if (projectData.description) {
+      generalData += `Descripción: ${projectData.description}\n`;
+    }
+    if (projectData.timeline?.startDate) {
+      generalData += `Fecha de Inicio: ${new Date(projectData.timeline.startDate).toLocaleDateString('es-ES')}\n`;
+    }
+    if (projectData.timeline?.endDate) {
+      generalData += `Fecha de Finalización: ${new Date(projectData.timeline.endDate).toLocaleDateString('es-ES')}\n`;
+    }
+    generalData += `Estado: ${projectData.status || 'Borrador'}`;
+    
+    addSection('2. DATOS GENERALES DEL PROYECTO', generalData, '📊');
+
+    // Procesar las secciones del proyecto con iconos
+    if (projectData.sections) {
+      if (projectData.sections.mission) {
+        addSection('3. MISIÓN ORGANIZACIONAL', projectData.sections.mission, '🎯');
+      }
+      
+      if (projectData.sections.vision) {
+        addSection('4. VISIÓN ESTRATÉGICA', projectData.sections.vision, '🔮');
+      }
+      
+      if (projectData.sections.objectives && projectData.sections.objectives.length > 0) {
+        let objectivesContent = '';
+        projectData.sections.objectives.forEach((obj, index) => {
+          objectivesContent += `${index + 1}. ${obj.title}\n`;
+          if (obj.description) {
+            objectivesContent += `   Descripción: ${obj.description}\n`;
+          }
+          objectivesContent += `   Prioridad: ${obj.priority || 'Media'}\n`;
+          objectivesContent += `   Estado: ${obj.status || 'Pendiente'}\n\n`;
+        });
+        addSection('5. OBJETIVOS ESTRATÉGICOS', objectivesContent, '🎯');
+      }
+      
+      if (projectData.sections.swot) {
+        let swotContent = '';
+        const swot = projectData.sections.swot;
         
-        // Contenido de las tarjetas de la lista
-        let sectionContent = '';
-        if (list.cards && list.cards.length > 0) {
-          list.cards.forEach((card, cardIndex) => {
-            sectionContent += `${cardIndex + 1}. ${card.title}\n`;
-            if (card.content) {
-              sectionContent += `${card.content}\n\n`;
-            }
+        if (swot.strengths?.length > 0) {
+          swotContent += 'FORTALEZAS:\n';
+          swot.strengths.forEach((item, index) => {
+            swotContent += `• ${item.text}\n`;
+          });
+          swotContent += '\n';
+        }
+        
+        if (swot.weaknesses?.length > 0) {
+          swotContent += 'DEBILIDADES:\n';
+          swot.weaknesses.forEach((item, index) => {
+            swotContent += `• ${item.text}\n`;
+          });
+          swotContent += '\n';
+        }
+        
+        if (swot.opportunities?.length > 0) {
+          swotContent += 'OPORTUNIDADES:\n';
+          swot.opportunities.forEach((item, index) => {
+            swotContent += `• ${item.text}\n`;
+          });
+          swotContent += '\n';
+        }
+        
+        if (swot.threats?.length > 0) {
+          swotContent += 'AMENAZAS:\n';
+          swot.threats.forEach((item, index) => {
+            swotContent += `• ${item.text}\n`;
           });
         }
         
-        addSection(sectionTitle, sectionContent);
-      });
+        if (swotContent) {
+          addSection('6. ANÁLISIS FODA', swotContent, '📈');
+        }
+      }
+      
+      if (projectData.sections.strategy) {
+        addSection('7. ESTRATEGIAS DE IMPLEMENTACIÓN', projectData.sections.strategy, '⚡');
+      }
+      
+      if (projectData.sections.conclusions) {
+        addSection('8. CONCLUSIONES', projectData.sections.conclusions, '✅');
+      }
     }
 
-    // Procesar documentos adicionales
+    // Procesar documentos adicionales si existen
     if (projectData.documents && projectData.documents.length > 0) {
-      projectData.documents.forEach(doc => {
+      projectData.documents.forEach((doc, index) => {
         if (doc.content && doc.content.trim()) {
-          addSection(doc.title.toUpperCase(), doc.content);
+          addSection(`${index + 9}. ${doc.title.toUpperCase()}`, doc.content, '📄');
         }
       });
     }
 
-    // Pie de página en todas las páginas
+    // === PIE DE PÁGINA MEJORADO ===
     const totalPages = pdf.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       pdf.setPage(i);
-      pdf.setFontSize(10);
+      
+      // Línea decorativa en el pie
+      pdf.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
+      
+      // Información del pie
+      pdf.setFontSize(9);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(
-        `Página ${i} de ${totalPages}`,
-        pageWidth / 2,
-        pageHeight - 10,
-        { align: 'center' }
-      );
+      pdf.setTextColor(100, 100, 100);
+      
+      // Nombre del proyecto (izquierda)
+      pdf.text(projectData.name || 'Plan Estratégico de TI', margin, pageHeight - 10);
+      
+      // Número de página (centro)
+      pdf.text(`Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      
+      // Fecha (derecha)
+      pdf.text(new Date().toLocaleDateString('es-ES'), pageWidth - margin, pageHeight - 10, { align: 'right' });
     }
 
-    // Descargar el PDF
-    const fileName = `plan-estrategico-${projectData.title?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'proyecto'}-${new Date().toISOString().split('T')[0]}.pdf`;
+    // Descargar el PDF con nombre mejorado
+    const fileName = `Plan-Estrategico-TI-${projectData.name?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'proyecto'}-${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(fileName);
     
     return { success: true, fileName };

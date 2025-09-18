@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Board = require('../models/Board');
 const Document = require('../models/Document');
+const ChangeHistory = require('../models/ChangeHistory');
 
 // Almacenar usuarios activos por proyecto
 const activeUsers = new Map(); // projectId -> Set of user objects
@@ -106,20 +107,44 @@ const socketHandler = (io) => {
       try {
         const { projectId, sectionKey, content, changeType } = data;
         
-        // Crear entrada en el historial
-        const historyEntry = {
-          id: Date.now(),
+        // Obtener contenido anterior para comparación
+        const project = await Project.findById(projectId);
+        const previousContent = project?.sections?.[sectionKey];
+        
+        // Crear entrada persistente en el historial
+        const historyEntry = new ChangeHistory({
+          projectId,
           sectionKey,
-          changeType, // 'edit', 'add', 'delete'
-          content,
-          timestamp: new Date(),
+          changeType: changeType || 'edit',
+          content: {
+            before: previousContent,
+            after: content
+          },
           user: {
             id: socket.userId,
             name: socket.user.name,
-            email: socket.user.email
+            email: socket.user.email,
+            avatar: socket.user.avatar
           },
-          preview: content ? content.substring(0, 100) + '...' : ''
-        };
+          metadata: {
+            preview: typeof content === 'string' 
+              ? content.replace(/<[^>]*>/g, '').substring(0, 150) + '...'
+              : JSON.stringify(content).substring(0, 150) + '...',
+            wordCount: typeof content === 'string' 
+              ? content.replace(/<[^>]*>/g, '').split(/\s+/).length
+              : 0,
+            characterCount: typeof content === 'string' 
+              ? content.length
+              : JSON.stringify(content).length,
+            sessionId: socket.sessionID || Date.now().toString(),
+            userAgent: socket.handshake.headers['user-agent'],
+            ipAddress: socket.handshake.address
+          },
+          version: await getNextVersion(projectId, sectionKey),
+          tags: ['collaboration']
+        });
+        
+        await historyEntry.save();
         
         // Emitir cambios a todos los usuarios del proyecto excepto al emisor
         socket.to(`project-${projectId}`).emit('project-section-updated', {
@@ -134,15 +159,25 @@ const socketHandler = (io) => {
           timestamp: new Date()
         });
         
-        // Emitir nueva entrada del historial
-        io.to(`project-${projectId}`).emit('history-entry-added', historyEntry);
+        // Emitir nueva entrada del historial a todos los usuarios
+        io.to(`project-${projectId}`).emit('history-entry-added', historyEntry.toJSON());
         
       } catch (error) {
         console.error('Error actualizando sección del proyecto:', error);
         socket.emit('error', { message: 'Error actualizando sección del proyecto' });
       }
     });
-
+    
+    // Función auxiliar para obtener la siguiente versión
+    async function getNextVersion(projectId, sectionKey) {
+      const lastEntry = await ChangeHistory.findOne({
+        projectId,
+        sectionKey
+      }).sort({ version: -1 });
+      
+      return lastEntry ? lastEntry.version + 1 : 1;
+    }
+    
     // Evento para indicar que un usuario está editando una sección
     socket.on('section-editing', (data) => {
       const { projectId, sectionKey, isEditing } = data;
@@ -374,20 +409,26 @@ module.exports = (io) => {
       try {
         const { projectId, sectionKey, content, changeType } = data;
         
-        // Crear entrada en el historial
-        const historyEntry = {
-          id: Date.now(),
+        // Crear entrada en el historial usando el modelo
+        const ChangeHistory = require('../models/ChangeHistory');
+        const historyEntry = await ChangeHistory.createEntry({
+          projectId,
           sectionKey,
-          changeType, // 'edit', 'add', 'delete'
-          content,
-          timestamp: new Date(),
+          changeType: changeType || 'edit',
+          content: {
+            before: null, // Se podría obtener del estado anterior
+            after: content
+          },
           user: {
             id: socket.userId,
             name: socket.user.name,
             email: socket.user.email
           },
-          preview: content ? content.substring(0, 100) + '...' : ''
-        };
+          metadata: {
+            userAgent: socket.handshake.headers['user-agent'],
+            ipAddress: socket.handshake.address
+          }
+        });
         
         // Emitir cambios a todos los usuarios del proyecto excepto al emisor
         socket.to(`project-${projectId}`).emit('project-section-updated', {
@@ -402,7 +443,7 @@ module.exports = (io) => {
           timestamp: new Date()
         });
         
-        // Emitir nueva entrada del historial
+        // Emitir nueva entrada del historial a todos los usuarios del proyecto
         io.to(`project-${projectId}`).emit('history-entry-added', historyEntry);
         
       } catch (error) {

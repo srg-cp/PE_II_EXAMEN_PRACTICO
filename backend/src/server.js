@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const boardRoutes = require('./routes/boards');
 const documentRoutes = require('./routes/documents');
+const changeHistoryRoutes = require('./routes/changeHistory');
 const socketHandler = require('./socket/socketHandler');
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api', changeHistoryRoutes);
 
 // Socket.io
 socketHandler(io);
