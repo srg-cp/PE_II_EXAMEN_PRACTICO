@@ -19,7 +19,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useSocket } from '../contexts/SocketContext';
 import ConnectedUsers from '../components/ConnectedUsers/ConnectedUsers';
-import ChangeHistory from '../components/ChangeHistory/ChangeHistory';
+import ChangeHistoryPanel from '../components/ChangeHistory/ChangeHistoryPanel';
 
 const ProjectBoard = () => {
   // Cambiar projectId por id para que coincida con la ruta
@@ -372,6 +372,15 @@ const ProjectBoard = () => {
         onBlur={handleSectionBlur}
         placeholder={`Describe la ${sectionKey === 'strategy' ? 'estrategia' : 'conclusiones'} del proyecto...`}
         style={{ minHeight: '300px' }}
+        modules={{
+          toolbar: [
+            [{ 'header': [1, 2, false] }],
+            ['bold', 'italic', 'underline'],
+            ['link'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            ['clean']
+          ]
+        }}
       />
     </Paper>
   );
@@ -407,7 +416,7 @@ const ProjectBoard = () => {
     <>
       {/* Componentes de colaboración en tiempo real */}
       <ConnectedUsers projectId={projectId} />
-      <ChangeHistory projectId={projectId} />
+      <ChangeHistoryPanel projectId={projectId} />
       
       <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
         <Box sx={{ mb: 3 }}>
