@@ -131,9 +131,49 @@ const searchUsers = async (req, res) => {
   }
 };
 
+// Actualizar perfil de usuario
+const updateProfile = async (req, res) => {
+  try {
+    const { name, email, avatar } = req.body;
+    const userId = req.user._id;
+
+    // Verificar si el email ya existe (si se está cambiando)
+    if (email && email !== req.user.email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'El email ya está en uso' });
+      }
+    }
+
+    // Actualizar usuario
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        ...(name && { name }),
+        ...(email && { email }),
+        ...(avatar !== undefined && { avatar })
+      },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    res.json({ 
+      message: 'Perfil actualizado exitosamente',
+      user: updatedUser 
+    });
+  } catch (error) {
+    console.error('Error actualizando perfil:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
+  updateProfile,
   searchUsers
 };

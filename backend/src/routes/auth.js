@@ -25,6 +25,11 @@ router.post('/login', login);
 // @access  Private
 router.get('/profile', auth, getProfile);
 
+// @route   PUT /api/auth/profile
+// @desc    Actualizar perfil del usuario
+// @access  Private
+router.put('/profile', auth, updateProfile);
+
 // @route   GET /api/auth/search-users
 // @desc    Buscar usuarios por nombre o email
 // @access  Private

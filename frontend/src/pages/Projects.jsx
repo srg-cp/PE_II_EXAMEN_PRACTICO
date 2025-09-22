@@ -67,7 +67,7 @@ const Projects = () => {
   };
 
   const handleViewProject = (projectId) => {
-    navigate(`/projects/${projectId}/board`);
+    navigate(`/project/${projectId}`);
   };
 
   const handleEditProject = (project) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -11,22 +11,43 @@ import {
   Chip,
   Container,
   Tab,
-  Tabs
+  Tabs,
+  IconButton,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   Folder as FolderIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  Settings as SettingsIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
+import UserProfileModal from '../UserProfile/UserProfileModal';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleProfileClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleOpenProfile = () => {
+    setProfileOpen(true);
+    handleMenuClose();
   };
 
   const getCurrentTab = () => {
@@ -97,26 +118,41 @@ const Navbar = () => {
             </Tabs>
           </Box>
 
-          {/* User Info and Logout */}
+          {/* User Info and Actions */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Chip
-              avatar={<Avatar sx={{ bgcolor: 'primary.main' }}>{user?.name?.charAt(0)}</Avatar>}
-              label={`Hola, ${user?.name}`}
-              variant="outlined"
-              color="primary"
-            />
-            
-            <Button
-              variant="contained"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              sx={{ textTransform: 'none' }}
+            <IconButton
+              onClick={handleProfileClick}
+              sx={{ p: 0 }}
             >
-              Cerrar Sesión
-            </Button>
+              <Avatar sx={{ bgcolor: 'primary.main' }}>
+                {user?.name?.charAt(0)}
+              </Avatar>
+            </IconButton>
+            
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <MenuItem onClick={handleOpenProfile}>
+                <PersonIcon sx={{ mr: 1 }} />
+                Mi Perfil
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <LogoutIcon sx={{ mr: 1 }} />
+                Cerrar Sesión
+              </MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
       </Container>
+      
+      <UserProfileModal 
+        open={profileOpen} 
+        onClose={() => setProfileOpen(false)} 
+      />
     </AppBar>
   );
 };

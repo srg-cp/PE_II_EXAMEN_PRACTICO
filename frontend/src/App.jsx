@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
@@ -12,6 +12,7 @@ import ProjectBoard from './pages/ProjectBoard';
 import DocumentEditor from './pages/DocumentEditor';
 import Projects from './pages/Projects';
 import './index.css';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Tema Material Design 3
 const theme = createTheme({
@@ -70,57 +71,59 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <CssBaseline />
         <Router>
           <div className="App">
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <SocketProvider>
                     <Navbar />
                     <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Cambiar la redirección por la página de proyectos */}
-              <Route
-                path="/projects"
-                element={
-                  <ProtectedRoute>
+                  </SocketProvider>
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <SocketProvider>
+                    <Navbar />
+                    <Dashboard />
+                  </SocketProvider>
+                </ProtectedRoute>
+              } />
+              <Route path="/projects" element={
+                <ProtectedRoute>
+                  <SocketProvider>
                     <Navbar />
                     <Projects />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/projects/:id/board"
-                element={
-                  <ProtectedRoute>
+                  </SocketProvider>
+                </ProtectedRoute>
+              } />
+              <Route path="/project/:id" element={
+                <ProtectedRoute>
+                  <SocketProvider>
                     <Navbar />
                     <ProjectBoard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/documents/:id"
-                element={
-                  <ProtectedRoute>
+                  </SocketProvider>
+                </ProtectedRoute>
+              } />
+              <Route path="/document/:id" element={
+                <ProtectedRoute>
+                  <SocketProvider>
                     <Navbar />
                     <DocumentEditor />
-                  </ProtectedRoute>
-                }
-              />
+                  </SocketProvider>
+                </ProtectedRoute>
+              } />
             </Routes>
           </div>
         </Router>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

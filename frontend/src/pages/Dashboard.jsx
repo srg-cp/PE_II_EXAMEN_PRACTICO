@@ -248,7 +248,7 @@ const Dashboard = () => {
                 <Button
                   size="small"
                   startIcon={<DescriptionIcon />}
-                  onClick={() => navigate(`/documents/${project._id}`)}
+                  onClick={() => navigate(`/document/${project._id}`)}
                 >
                   Documentos
                 </Button>
@@ -257,7 +257,7 @@ const Dashboard = () => {
                   size="small"
                   endIcon={<LaunchIcon />}
                   component={Link}
-                  to={`/projects/${project._id}/board`}
+                  to={`/project/${project._id}`}
                 >
                   Ver Proyecto
                 </Button>
