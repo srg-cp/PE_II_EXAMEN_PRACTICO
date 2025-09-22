@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   Container,
   Typography,
@@ -34,6 +35,7 @@ import EditProjectModal from '../components/EditProjectModal';
 
 const Projects = () => {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,7 @@ const Projects = () => {
       <Grid item xs={12} sm={6} md={4} key={project._id}>
         <Card 
           sx={{ 
-            height: '100%', 
+            height: 420, // Altura fija
             display: 'flex', 
             flexDirection: 'column',
             borderRadius: 3,
@@ -150,7 +152,7 @@ const Projects = () => {
                 label={isOwner ? 'Owner' : 'Invitado'}
                 size="small"
                 sx={{
-                  backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                  backgroundColor: isOwner ? currentTheme.primary : currentTheme.secondary,
                   color: 'white',
                   fontSize: '0.75rem',
                   height: 24,
@@ -185,7 +187,7 @@ const Projects = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                    backgroundColor: isOwner ? currentTheme.primary : currentTheme.secondary,
                     color: 'white'
                   }}
                 >
@@ -196,34 +198,53 @@ const Projects = () => {
               )}
             </Box>
             
-            {/* Título del proyecto - MÁS COMPACTO */}
-            <Typography 
-              variant="h6" 
-              component="h3" 
-              sx={{ 
-                fontWeight: 'bold',
-                mb: 0.5,
-                color: '#1f2937',
-                textAlign: 'center',
-                fontSize: '1.1rem'
-              }}
-            >
-              {project.name}
-            </Typography>
+            {/* Título del proyecto con tooltip */}
+            <Tooltip title={project.name} arrow placement="top">
+              <Typography 
+                variant="h6" 
+                component="h3" 
+                sx={{ 
+                  fontWeight: 'bold',
+                  mb: 0.5,
+                  color: '#1f2937',
+                  textAlign: 'center',
+                  fontSize: '1.1rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%',
+                  cursor: 'help'
+                }}
+              >
+                {project.name}
+              </Typography>
+            </Tooltip>
             
-            {/* Descripción - MÁS COMPACTA */}
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                mb: 1.5,
-                fontSize: '0.8rem',
-                lineHeight: 1.4,
-                textAlign: 'center'
-              }}
-            >
-              {project.description || 'Sin descripción'}
-            </Typography>
+            {/* Descripción con tooltip */}
+            <Tooltip title={project.description || 'Sin descripción'} arrow placement="bottom">
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1.5,
+                  fontSize: '0.8rem',
+                  lineHeight: 1.4,
+                  textAlign: 'center',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  minHeight: '2.24em',
+                  maxHeight: '3.14em',
+                  maxWidth: '100%',
+                  cursor: 'help',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {project.description || 'Sin descripción'}
+              </Typography>
+            </Tooltip>
             
             {/* Participantes - FUNCIONALES Y COMPACTOS */}
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>              
@@ -247,9 +268,16 @@ const Projects = () => {
                 }}
               >
                 {participants.slice(0, 3).map((participant, index) => {
-                  // Generar colores consistentes basados en el índice
-                  const colors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#10b981', '#f97316'];
-                  const backgroundColor = colors[index % colors.length];
+                  // Generar colores basados en el tema actual
+                  const themeColors = [
+                    currentTheme.primary,
+                    currentTheme.secondary,
+                    currentTheme.primary + '80', // Versión más clara del primario
+                    currentTheme.secondary + '80', // Versión más clara del secundario
+                    '#f59e0b', // Mantener algunos colores adicionales para variedad
+                    '#10b981'
+                  ];
+                  const backgroundColor = themeColors[index % themeColors.length];
                   
                   return (
                     <Tooltip 
@@ -290,7 +318,7 @@ const Projects = () => {
                   >
                     <Avatar 
                       sx={{ 
-                        bgcolor: '#6b7280',
+                        bgcolor: currentTheme.secondary,
                         width: 28,
                         height: 28,
                         fontSize: '0.7rem',
@@ -327,7 +355,7 @@ const Projects = () => {
                   borderRadius: 3,
                   backgroundColor: '#e5e7eb',
                   '& .MuiLinearProgress-bar': {
-                    backgroundColor: '#22c55e',
+                    backgroundColor: currentTheme.primary,
                     borderRadius: 3
                   }
                 }}
@@ -337,14 +365,14 @@ const Projects = () => {
             {/* Footer con comentarios y fecha - MÁS COMPACTO */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <ChatIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+                <ChatIcon sx={{ fontSize: 14, color: currentTheme.secondary }} />
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                   {commentsCount}
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <TimeIcon sx={{ fontSize: 14, color: '#22c55e' }} />
-                <Typography variant="caption" sx={{ color: '#22c55e', fontSize: '0.75rem' }}>
+                <TimeIcon sx={{ fontSize: 14, color: currentTheme.primary }} />
+                <Typography variant="caption" sx={{ color: currentTheme.primary, fontSize: '0.75rem' }}>
                   {new Date(project.createdAt).toLocaleDateString()}
                 </Typography>
               </Box>
@@ -352,17 +380,26 @@ const Projects = () => {
           </CardContent>
           
           {/* Botones de acción */}
-          <CardActions sx={{ justifyContent: 'space-between', px: 2.5, pb: 2 }}>
+          <CardActions sx={{ 
+            justifyContent: 'space-between', 
+            px: 2.5, 
+            pb: 2,
+            backgroundColor: `${currentTheme.primary}08`,
+            borderRadius: '0 0 12px 12px'
+          }}>
             <Button
               startIcon={<ViewIcon />}
               onClick={() => handleViewProject(project._id)}
               variant="contained"
               size="small"
               sx={{
-                backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                backgroundColor: isOwner ? currentTheme.primary : currentTheme.secondary,
                 fontSize: '0.8rem',
+                borderRadius: 2,
+                boxShadow: `0 2px 8px ${currentTheme.primary}40`,
                 '&:hover': {
-                  backgroundColor: isOwner ? '#6d28d9' : '#16a34a'
+                  backgroundColor: isOwner ? currentTheme.primary + 'CC' : currentTheme.secondary + 'CC',
+                  boxShadow: `0 4px 12px ${currentTheme.primary}60`
                 }
               }}
             >
@@ -372,7 +409,15 @@ const Projects = () => {
             {isOwner && (
               <IconButton 
                 size="small" 
-                sx={{ color: '#6b7280' }}
+                sx={{ 
+                  color: currentTheme.secondary,
+                  backgroundColor: `${currentTheme.secondary}15`,
+                  borderRadius: 2,
+                  '&:hover': {
+                    backgroundColor: `${currentTheme.secondary}25`,
+                    color: currentTheme.primary
+                  }
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEditProject(project);
