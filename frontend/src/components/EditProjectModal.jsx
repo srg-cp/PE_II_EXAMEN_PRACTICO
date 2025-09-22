@@ -320,19 +320,22 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
                     }}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} display="flex" alignItems="center" gap={1}>
-                    <Avatar src={option.avatar} sx={{ width: 32, height: 32 }}>
-                      {option.name.charAt(0).toUpperCase()}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2">{option.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.email}
-                      </Typography>
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps} display="flex" alignItems="center" gap={1}>
+                      <Avatar src={option.avatar} sx={{ width: 32, height: 32 }}>
+                        {option.name.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2">{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.email}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  );
+                }}
                 renderTags={(value, getTagProps) =>
                   value.map((option, index) => (
                     <Chip

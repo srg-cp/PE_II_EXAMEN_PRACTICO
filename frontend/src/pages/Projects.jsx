@@ -15,14 +15,19 @@ import {
   IconButton,
   Fab,
   Avatar,
-  CardMedia
+  CardMedia,
+  LinearProgress,
+  AvatarGroup,
+  Tooltip
 } from '@mui/material';
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
   Settings as SettingsIcon,
   Person as PersonIcon,
-  Group as GroupIcon
+  Group as GroupIcon,
+  AccessTime as TimeIcon,
+  ChatBubbleOutline as ChatIcon
 } from '@mui/icons-material';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
@@ -87,95 +92,300 @@ const Projects = () => {
   const ownedProjects = Array.isArray(projects) ? projects.filter(project => project.owner?._id === user?._id) : [];
   const invitedProjects = Array.isArray(projects) ? projects.filter(project => project.owner?._id !== user?._id) : [];
 
-  const ProjectCard = ({ project, isOwner }) => (
-    <Grid item xs={12} sm={6} md={4} key={project._id}>
-      <Card 
-        sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: 4
-          }
-        }}
-      >
-        {/* Imagen del proyecto */}
-        {project.image ? (
-          <CardMedia
-            component="img"
-            height="140"
-            image={project.image}
-            alt={project.name}
-            sx={{ objectFit: 'cover' }}
-          />
-        ) : (
-          <Box
-            sx={{
-              height: 140,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'primary.main',
-              color: 'white'
-            }}
-          >
-            <Typography variant="h2" sx={{ fontWeight: 'bold' }}>
-              {project.name.charAt(0).toUpperCase()}
-            </Typography>
-          </Box>
-        )}
-        
-        <CardContent sx={{ flexGrow: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-            <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold' }}>
-              {project.name}
-            </Typography>
-            <Chip 
-              icon={isOwner ? <PersonIcon /> : <GroupIcon />}
-              label={isOwner ? 'Owner' : 'Invitado'}
-              size="small"
-              color={isOwner ? 'primary' : 'secondary'}
-              variant="outlined"
-            />
-          </Box>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {project.description || 'Sin descripción'}
-          </Typography>
-          
-          <Typography variant="caption" color="text.secondary">
-            Creado: {new Date(project.createdAt).toLocaleDateString()}
-          </Typography>
-        </CardContent>
-        
-        <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-          <Button
-            startIcon={<ViewIcon />}
-            onClick={() => handleViewProject(project._id)}
-            variant="contained"
-            size="small"
-          >
-            Ver Proyecto
-          </Button>
-          
-          {isOwner && (
-            <IconButton 
-              size="small" 
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditProject(project);
+  const ProjectCard = ({ project, isOwner }) => {
+    // Usar datos reales del proyecto
+    const progress = project.progress || 0;
+    
+    // Obtener participantes reales del backend - incluir owner y members/participants
+    const allParticipants = [];
+    
+    // Agregar el owner como primer participante
+    if (project.owner) {
+      allParticipants.push({
+        _id: project.owner._id,
+        name: project.owner.name || project.owner.username || 'Owner',
+        avatar: project.owner.avatar || project.owner.profileImage,
+        email: project.owner.email
+      });
+    }
+    
+    // Agregar otros participantes/miembros (evitar duplicar el owner)
+    const otherParticipants = project.participants || project.members || [];
+    otherParticipants.forEach(participant => {
+      if (participant._id !== project.owner?._id) {
+        allParticipants.push({
+          _id: participant._id,
+          name: participant.name || participant.username || 'Usuario',
+          avatar: participant.avatar || participant.profileImage,
+          email: participant.email
+        });
+      }
+    });
+    
+    const participants = allParticipants;
+    const commentsCount = project.commentsCount || 0;
+    
+    return (
+      <Grid item xs={12} sm={6} md={4} key={project._id}>
+        <Card 
+          sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            borderRadius: 3,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+            },
+            backgroundColor: 'white'
+          }}
+        >
+          <CardContent sx={{ flexGrow: 1, p: 2.5, textAlign: 'center' }}>
+            {/* Chip de rol en la esquina superior derecha */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+              <Chip 
+                icon={isOwner ? <PersonIcon /> : <GroupIcon />}
+                label={isOwner ? 'Owner' : 'Invitado'}
+                size="small"
+                sx={{
+                  backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                  color: 'white',
+                  fontSize: '0.75rem',
+                  height: 24,
+                  '& .MuiChip-icon': {
+                    color: 'white',
+                    fontSize: '0.875rem'
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Imagen del proyecto o icono por defecto - MÁS COMPACTA */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>
+              {project.image ? (
+                <Box
+                  component="img"
+                  src={project.image}
+                  alt={project.name}
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                    {project.name.charAt(0).toUpperCase()}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            
+            {/* Título del proyecto - MÁS COMPACTO */}
+            <Typography 
+              variant="h6" 
+              component="h3" 
+              sx={{ 
+                fontWeight: 'bold',
+                mb: 0.5,
+                color: '#1f2937',
+                textAlign: 'center',
+                fontSize: '1.1rem'
               }}
             >
-              <SettingsIcon />
-            </IconButton>
-          )}
-        </CardActions>
-      </Card>
-    </Grid>
-  );
+              {project.name}
+            </Typography>
+            
+            {/* Descripción - MÁS COMPACTA */}
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: 1.5,
+                fontSize: '0.8rem',
+                lineHeight: 1.4,
+                textAlign: 'center'
+              }}
+            >
+              {project.description || 'Sin descripción'}
+            </Typography>
+            
+            {/* Participantes - FUNCIONALES Y COMPACTOS */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>              
+              <AvatarGroup 
+                max={4}
+                sx={{ 
+                  '& .MuiAvatar-root': { 
+                    width: 28, 
+                    height: 28, 
+                    fontSize: '0.75rem',
+                    border: '2px solid white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  },
+                  '& .MuiAvatarGroup-avatar': {
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold'
+                  }
+                }}
+              >
+                {participants.slice(0, 3).map((participant, index) => {
+                  // Generar colores consistentes basados en el índice
+                  const colors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#10b981', '#f97316'];
+                  const backgroundColor = colors[index % colors.length];
+                  
+                  return (
+                    <Tooltip 
+                      key={participant._id || index}
+                      title={`${participant.name}${participant.email ? ` (${participant.email})` : ''}`}
+                      arrow
+                      placement="top"
+                    >
+                      <Avatar 
+                        src={participant.avatar || null}
+                        sx={{ 
+                          bgcolor: participant.avatar ? 'transparent' : backgroundColor,
+                          width: 28,
+                          height: 28,
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s',
+                          '&:hover': {
+                            transform: 'scale(1.1)'
+                          }
+                        }}
+                      >
+                        {!participant.avatar && participant.name ? 
+                          participant.name.charAt(0).toUpperCase() : 
+                          'U'
+                        }
+                      </Avatar>
+                    </Tooltip>
+                  );
+                })}
+                {/* Si hay más de 3 participantes, mostrar el contador con tooltip */}
+                {participants.length > 3 && (
+                  <Tooltip 
+                    title={`+${participants.length - 3} más: ${participants.slice(3).map(p => p.name).join(', ')}`}
+                    arrow
+                    placement="top"
+                  >
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: '#6b7280',
+                        width: 28,
+                        height: 28,
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s',
+                        '&:hover': {
+                          transform: 'scale(1.1)'
+                        }
+                      }}
+                    >
+                      +{participants.length - 3}
+                    </Avatar>
+                  </Tooltip>
+                )}
+              </AvatarGroup>
+            </Box>
+            
+            {/* Progreso - MÁS COMPACTO */}
+            <Box sx={{ mb: 1.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 'medium', color: '#374151', fontSize: '0.875rem' }}>
+                  Progress
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#374151', fontSize: '0.875rem' }}>
+                  {progress}%
+                </Typography>
+              </Box>
+              <LinearProgress 
+                variant="determinate" 
+                value={progress} 
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: '#e5e7eb',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#22c55e',
+                    borderRadius: 3
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Footer con comentarios y fecha - MÁS COMPACTO */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <ChatIcon sx={{ fontSize: 14, color: '#9ca3af' }} />
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  {commentsCount}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TimeIcon sx={{ fontSize: 14, color: '#22c55e' }} />
+                <Typography variant="caption" sx={{ color: '#22c55e', fontSize: '0.75rem' }}>
+                  {new Date(project.createdAt).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+          
+          {/* Botones de acción */}
+          <CardActions sx={{ justifyContent: 'space-between', px: 2.5, pb: 2 }}>
+            <Button
+              startIcon={<ViewIcon />}
+              onClick={() => handleViewProject(project._id)}
+              variant="contained"
+              size="small"
+              sx={{
+                backgroundColor: isOwner ? '#7c3aed' : '#22c55e',
+                fontSize: '0.8rem',
+                '&:hover': {
+                  backgroundColor: isOwner ? '#6d28d9' : '#16a34a'
+                }
+              }}
+            >
+              Ver Proyecto
+            </Button>
+            
+            {isOwner && (
+              <IconButton 
+                size="small" 
+                sx={{ color: '#6b7280' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditProject(project);
+                }}
+              >
+                <SettingsIcon fontSize="small" />
+              </IconButton>
+            )}
+          </CardActions>
+        </Card>
+      </Grid>
+    );
+  };
 
   if (loading) {
     return (
