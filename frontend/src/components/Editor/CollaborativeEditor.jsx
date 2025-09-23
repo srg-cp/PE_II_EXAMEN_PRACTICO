@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
+import CollaborativeCursors from '../CollaborativeCursors/CollaborativeCursors';
 
 const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title, type }) => {
   const [content, setContent] = useState(initialContent);
@@ -26,6 +27,8 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
   const { socket, editDocument } = useSocket();
   const { user } = useAuth();
   const saveTimeoutRef = useRef(null);
+  const [userCursors, setUserCursors] = useState([]);
+  const [editorBounds, setEditorBounds] = useState(null);
 
   // Configuración del editor
   const modules = {
@@ -62,21 +65,29 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
         }
       });
 
-      // Escuchar cursores de otros usuarios
+      // Escuchar cursores de otros usuarios - MEJORADO
       socket.on('cursor-updated', (data) => {
         if (data.documentId === documentId) {
-          // Actualizar posición de cursor de otros usuarios
-          updateUserCursor(data);
+          setUserCursors(prev => {
+            const filtered = prev.filter(cursor => cursor.userId !== data.userId);
+            return [...filtered, {
+              userId: data.userId,
+              userName: data.userName,
+              position: data.position,
+              timestamp: Date.now()
+            }];
+          });
+          
+          // Remover cursores inactivos después de 5 segundos
+          setTimeout(() => {
+            setUserCursors(prev => 
+              prev.filter(cursor => 
+                cursor.userId !== data.userId || 
+                Date.now() - cursor.timestamp < 5000
+              )
+            );
+          }, 5000);
         }
-      });
-
-      // Usuarios que se unen/salen
-      socket.on('user-joined', (data) => {
-        setActiveUsers(prev => [...prev.filter(u => u.userId !== data.userId), data]);
-      });
-
-      socket.on('user-left', (data) => {
-        setActiveUsers(prev => prev.filter(u => u.userId !== data.userId));
       });
 
       return () => {
@@ -110,14 +121,30 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
     }, 1000);
   };
 
-  const handleSelectionChange = (range) => {
-    if (range && socket) {
-      // Enviar posición del cursor
-      socket.emit('cursor-position', {
-        projectId,
-        documentId,
-        position: range
-      });
+  // Mejorar el manejo de selección para enviar posición del cursor
+  const handleSelectionChange = (range, source, editor) => {
+    if (range && socket && source === 'user') {
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const bounds = quill.getBounds(range.index);
+        const editorElement = quill.container;
+        const editorRect = editorElement.getBoundingClientRect();
+        
+        // Calcular posición relativa al editor
+        const position = {
+          x: bounds.left,
+          y: bounds.top + bounds.height,
+          index: range.index,
+          length: range.length
+        };
+
+        // Enviar posición del cursor
+        socket.emit('cursor-position', {
+          projectId,
+          documentId,
+          position
+        });
+      }
     }
   };
 
@@ -127,7 +154,7 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
   };
 
   return (
-    <Paper className="h-full flex flex-col">
+    <Paper className="h-full flex flex-col relative">
       {/* Header del editor */}
       <Box className="flex justify-between items-center p-4 border-b">
         <Box>
@@ -180,8 +207,8 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
         </Box>
       </Box>
 
-      {/* Editor */}
-      <Box className="flex-1 overflow-hidden">
+      {/* Editor con cursores colaborativos */}
+      <Box className="flex-1 overflow-hidden relative">
         <ReactQuill
           ref={quillRef}
           theme="snow"
@@ -192,9 +219,12 @@ const CollaborativeEditor = ({ projectId, documentId, initialContent = '', title
           formats={formats}
           className="h-full"
           style={{
-            height: 'calc(100% - 42px)', // Ajustar por la toolbar
+            height: 'calc(100% - 42px)',
           }}
         />
+        
+        {/* Overlay de cursores colaborativos */}
+        <CollaborativeCursors cursors={userCursors} />
       </Box>
     </Paper>
   );

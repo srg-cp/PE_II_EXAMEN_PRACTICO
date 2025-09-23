@@ -21,7 +21,7 @@ import {
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
-import { io } from 'socket.io-client';
+import { useSocket } from '../../contexts/SocketContext';
 import axios from 'axios';
 
 const BaseSection = ({ 
@@ -32,46 +32,37 @@ const BaseSection = ({
   onContentChange,
   content 
 }) => {
-  const [socket, setSocket] = useState(null);
+  const { socket } = useSocket(); // Usar el contexto en lugar de crear nueva conexión
   const [activeUsers, setActiveUsers] = useState([]);
   const [versionHistory, setVersionHistory] = useState([]);
   const [historyMenuAnchor, setHistoryMenuAnchor] = useState(null);
-  const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+  const [saveStatus, setSaveStatus] = useState('saved');
   const [lastSaved, setLastSaved] = useState(null);
   const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
-    // Conectar a WebSocket para colaboración en tiempo real
-    const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000', {
-      auth: {
-        token: localStorage.getItem('token')
-      }
-    });
-
-    setSocket(newSocket);
-
-    // Unirse a la sala del proyecto y sección
-    newSocket.emit('join-section', { projectId, sectionKey });
+    if (!socket || !projectId) return;
 
     // Escuchar cambios de otros usuarios
-    newSocket.on('section-updated', (data) => {
-      if (data.userId !== localStorage.getItem('userId')) {
-        onContentChange(data.content, false); // false = no guardar automáticamente
+    socket.on('project-section-updated', (data) => {
+      if (data.sectionKey === sectionKey) {
+        onContentChange(data.content, false);
       }
     });
 
     // Escuchar usuarios activos
-    newSocket.on('active-users', (users) => {
-      setActiveUsers(users.filter(user => user.id !== localStorage.getItem('userId')));
+    socket.on('active-users-updated', (data) => {
+      setActiveUsers(data.users.filter(user => user.id !== socket.userId));
     });
 
     // Cargar historial de versiones
     fetchVersionHistory();
 
     return () => {
-      newSocket.disconnect();
+      socket.off('project-section-updated');
+      socket.off('active-users-updated');
     };
-  }, [projectId, sectionKey]);
+  }, [socket, projectId, sectionKey]);
 
   const fetchVersionHistory = async () => {
     try {

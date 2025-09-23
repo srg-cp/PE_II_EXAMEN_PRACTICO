@@ -24,6 +24,7 @@ import ChangeHistoryPanel from '../components/ChangeHistory/ChangeHistoryPanel';
 import { exportProjectToPDF } from '../utils/pdfExport';
 // Agregar import para iconos Material Design
 import { Download } from '@mui/icons-material';
+import ConnectedUsersHeader from '../components/ConnectedUsers/ConnectedUsersHeader';
 
 const ProjectBoard = () => {
   // Cambiar projectId por id para que coincida con la ruta
@@ -475,8 +476,10 @@ const ProjectBoard = () => {
 
   return (
     <>
-      {/* Componentes de colaboración en tiempo real */}
-      <ConnectedUsers projectId={projectId} />
+      {/* Componente mejorado de usuarios conectados en la parte superior */}
+      <ConnectedUsersHeader projectId={projectId} />
+      
+      {/* Mantener el componente existente para otras funcionalidades */}
       <ChangeHistoryPanel projectId={projectId} />
       
       <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
