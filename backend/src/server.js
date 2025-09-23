@@ -14,9 +14,16 @@ const socketHandler = require('./socket/socketHandler');
 
 const app = express();
 const httpServer = createServer(app);
+
+// Configurar orígenes permitidos desde variables de entorno
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.VITE_DEV_URL || 'http://localhost:5173'
+].filter(Boolean);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   }
@@ -24,7 +31,7 @@ const io = new Server(httpServer, {
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5173"],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
