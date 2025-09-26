@@ -301,7 +301,7 @@ const UserProfileModal = ({ open, onClose }) => {
       </Grid>
 
       <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-        Los cambios solo se verán reflejados dentro de una Stepbro App
+        Los cambios solo se verán reflejados dentro de un navegador
       </Typography>
     </Box>
   );

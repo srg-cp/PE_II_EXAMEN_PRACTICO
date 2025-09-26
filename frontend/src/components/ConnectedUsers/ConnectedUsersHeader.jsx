@@ -7,18 +7,24 @@ import {
   Chip,
   Tooltip,
   Paper,
-  Badge
+  Badge,
+  Button
 } from '@mui/material';
 import {
   People as PeopleIcon,
-  Circle as CircleIcon
+  Circle as CircleIcon,
+  Share as ShareIcon
 } from '@mui/icons-material';
 import { useSocket } from '../../contexts/SocketContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import InviteParticipantsModal from '../InviteParticipantsModal';
 
-const ConnectedUsersHeader = ({ projectId }) => {
+const ConnectedUsersHeader = ({ projectId, inline = false }) => {
   const { socket } = useSocket();
+  const { currentTheme } = useTheme();
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [showAllUsers, setShowAllUsers] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
   useEffect(() => {
     if (!socket || !projectId) return;
@@ -36,13 +42,23 @@ const ConnectedUsersHeader = ({ projectId }) => {
     };
   }, [socket, projectId]);
 
-  const getUserColor = (userId) => {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+  const getUserColor = (userId, index) => {
+    // Usar colores basados en el tema actual
+    const themeColors = [
+      currentTheme.primary,
+      currentTheme.secondary,
+      currentTheme.primary + '80', // Versión más clara del primario
+      currentTheme.secondary + '80', // Versión más clara del secundario
+      '#f59e0b', // Mantener algunos colores adicionales para variedad
+      '#10b981',
+      '#8b5cf6',
+      '#f97316',
+      '#06b6d4',
+      '#84cc16'
     ];
-    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[index % colors.length];
+    
+    // Usar el índice para una distribución más uniforme
+    return themeColors[index % themeColors.length];
   };
 
   const getInitials = (name) => {
@@ -58,114 +74,166 @@ const ConnectedUsersHeader = ({ projectId }) => {
     return null;
   }
 
-  return (
-    <Paper 
-      elevation={1} 
-      sx={{ 
-        position: 'fixed',
-        top: 16,
-        right: 16,
-        zIndex: 1200,
-        p: 2,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(0, 0, 0, 0.1)'
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {/* Indicador de colaboración activa */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Badge
-            badgeContent={connectedUsers.length}
-            color="success"
+  // Diseño inline para usar al mismo nivel que el botón PDF
+  if (inline) {
+    return (
+      <>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            p: 2,
+            borderRadius: 3,
+            backgroundColor: currentTheme.background,
+            border: `1px solid ${currentTheme.primary}20`,
+            boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        >
+          {/* Indicador de colaboración activa */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Badge
+              badgeContent={connectedUsers.length}
+              sx={{
+                '& .MuiBadge-badge': {
+                  backgroundColor: currentTheme.primary,
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem'
+                }
+              }}
+            >
+              <PeopleIcon sx={{ color: currentTheme.primary }} />
+            </Badge>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: currentTheme.secondary,
+                fontWeight: 500
+              }}
+            >
+              {connectedUsers.length === 1 ? 'colaborador' : 'colaboradores'} activos
+            </Typography>
+          </Box>
+
+          {/* Lista de avatares de usuarios */}
+          <AvatarGroup 
+            max={5} 
             sx={{
-              '& .MuiBadge-badge': {
-                backgroundColor: '#4CAF50',
+              '& .MuiAvatar-root': {
+                width: 32,
+                height: 32,
+                fontSize: '0.75rem',
+                border: `2px solid ${currentTheme.background}`,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                  zIndex: 1,
+                  boxShadow: `0 4px 12px ${currentTheme.primary}40`
+                }
+              },
+              '& .MuiAvatarGroup-avatar': {
+                backgroundColor: currentTheme.secondary,
                 color: 'white',
+                fontSize: '0.7rem',
                 fontWeight: 'bold'
               }
             }}
           >
-            <PeopleIcon color="primary" />
-          </Badge>
-          <Typography variant="body2" color="text.secondary">
-            {connectedUsers.length === 1 ? 'colaborador' : 'colaboradores'} activos
-          </Typography>
-        </Box>
-
-        {/* Lista de avatares de usuarios */}
-        <AvatarGroup 
-          max={4} 
-          sx={{
-            '& .MuiAvatar-root': {
-              width: 32,
-              height: 32,
-              fontSize: '0.875rem',
-              border: '2px solid white',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                transform: 'scale(1.1)',
-                zIndex: 1
-              }
-            }
-          }}
-        >
-          {connectedUsers.map((user, index) => (
-            <Tooltip 
-              key={user.id} 
-              title={
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                    {user.name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                    {user.email}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                    <CircleIcon sx={{ fontSize: 8, color: '#4CAF50' }} />
-                    <Typography variant="caption">
-                      Conectado desde {new Date(user.joinedAt).toLocaleTimeString()}
+            {connectedUsers.map((user, index) => (
+              <Tooltip 
+                key={user.id} 
+                title={
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {user.name}
                     </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      {user.email}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                      <CircleIcon sx={{ fontSize: 8, color: currentTheme.primary }} />
+                      <Typography variant="caption">
+                        Conectado desde {new Date(user.joinedAt).toLocaleTimeString()}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              }
-              placement="bottom"
-            >
-              <Avatar
-                sx={{
-                  bgcolor: getUserColor(user.id),
-                  fontWeight: 'bold'
-                }}
-                src={user.avatar}
+                }
+                placement="bottom"
+                arrow
               >
-                {!user.avatar && getInitials(user.name)}
-              </Avatar>
-            </Tooltip>
-          ))}
-        </AvatarGroup>
+                <Avatar
+                  sx={{
+                    bgcolor: getUserColor(user.id, index),
+                    fontWeight: 'bold'
+                  }}
+                  src={user.avatar}
+                >
+                  {!user.avatar && getInitials(user.name)}
+                </Avatar>
+              </Tooltip>
+            ))}
+          </AvatarGroup>
 
-        {/* Indicador de actividad en tiempo real */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>          <CircleIcon 
-            sx={{ 
-              fontSize: 8, 
-              color: '#4CAF50',
-              '@keyframes pulse': {
-                '0%': { opacity: 1 },
-                '50%': { opacity: 0.5 },
-                '100%': { opacity: 1 }
-              },
-              animation: 'pulse 2s infinite'
-            }} 
-          />
-          <Typography variant="caption" color="success.main">
-            En vivo
-          </Typography>
+          {/* Botón de compartir */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<ShareIcon />}
+            onClick={() => setInviteModalOpen(true)}
+            sx={{
+              borderColor: currentTheme.primary,
+              color: currentTheme.primary,
+              borderRadius: '20px',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 2,
+              py: 0.5,
+              '&:hover': {
+                backgroundColor: `${currentTheme.primary}10`,
+                borderColor: currentTheme.primary
+              }
+            }}
+          >
+            Compartir
+          </Button>
+
+          {/* Indicador de actividad en tiempo real */}
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CircleIcon 
+              sx={{ 
+                fontSize: 8, 
+                color: '#4CAF50',
+                '@keyframes pulse': {
+                  '0%': { opacity: 1 },
+                  '50%': { opacity: 0.5 },
+                  '100%': { opacity: 1 }
+                },
+                animation: 'pulse 2s infinite'
+              }} 
+            />
+            <Typography 
+              variant="caption" 
+              sx={{ color: currentTheme.primary, fontWeight: 500 }}
+            >
+              En vivo
+            </Typography>
+          </Box>
         </Box>
-      </Box>
-    </Paper>
-  );
+
+        {/* Modal de invitación */}
+        <InviteParticipantsModal
+          open={inviteModalOpen}
+          onClose={() => setInviteModalOpen(false)}
+          projectId={projectId}
+          currentMembers={connectedUsers}
+        />
+      </>
+    );
+  }
 };
 
 export default ConnectedUsersHeader;

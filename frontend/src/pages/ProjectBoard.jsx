@@ -476,9 +476,6 @@ const ProjectBoard = () => {
 
   return (
     <>
-      {/* Componente mejorado de usuarios conectados en la parte superior */}
-      <ConnectedUsersHeader projectId={projectId} />
-      
       {/* Mantener el componente existente para otras funcionalidades */}
       <ChangeHistoryPanel projectId={projectId} />
       
@@ -490,8 +487,17 @@ const ProjectBoard = () => {
           <Typography variant="subtitle1" color="text.secondary">
             {project?.description}
           </Typography>
-          {/* Botón de descarga PDF con Material Design 3 */}
-          <Box sx={{ mt: 3 }}>
+          
+          {/* Contenedor para botón PDF (izquierda) y colaboradores activos (extremo derecho) */}
+          <Box sx={{ 
+            mt: 3, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', // Esto separa los elementos a extremos opuestos
+            gap: 3,
+            flexWrap: 'wrap'
+          }}>
+            {/* Botón de descarga PDF - extremo izquierdo */}
             <Button 
               variant="contained" 
               startIcon={<Download />}
@@ -518,6 +524,9 @@ const ProjectBoard = () => {
             >
               Descargar Resumen Ejecutivo PDF
             </Button>
+            
+            {/* Colaboradores activos - extremo derecho */}
+            <ConnectedUsersHeader projectId={projectId} inline={true} />
           </Box>
         </Box>
 

@@ -24,13 +24,13 @@ router.post('/', [
     .trim()
     .notEmpty()
     .withMessage('El nombre del proyecto es requerido')
-    .isLength({ min: 1, max: 100 })
-    .withMessage('El nombre debe tener entre 1 y 100 caracteres'),
+    .isLength({ min: 1, max: 50 })
+    .withMessage('El nombre debe tener entre 1 y 50 caracteres'),
   body('description')
     .optional()
     .trim()
-    .isLength({ max: 500 })
-    .withMessage('La descripción no puede exceder 500 caracteres'),
+    .isLength({ max: 200 })
+    .withMessage('La descripción no puede exceder 200 caracteres'),
   body('objectives')
     .optional()
     .trim()
