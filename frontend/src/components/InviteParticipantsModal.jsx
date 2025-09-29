@@ -29,13 +29,52 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 
-const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = [] }) => {
+const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = [], onInviteSuccess }) => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [userOptions, setUserOptions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [projectMembers, setProjectMembers] = useState([]);
+
+  useEffect(() => {
+    if (open && projectId) {
+      fetchProjectMembers();
+    }
+  }, [open, projectId]);
+
+  const fetchProjectMembers = async () => {
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/projects/${projectId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      const project = response.data;
+      const allMembers = [];
+      
+      if (project.owner) {
+        allMembers.push(project.owner);
+      }
+      
+      if (project.members) {
+        project.members.forEach(member => {
+          if (member._id !== project.owner?._id) {
+            allMembers.push(member);
+          }
+        });
+      }
+      
+      setProjectMembers(allMembers);
+    } catch (error) {
+      console.error('Error obteniendo miembros del proyecto:', error);
+    }
+  };
 
   // Buscar usuarios disponibles
   const searchUsers = async (searchTerm) => {
@@ -55,11 +94,10 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
         }
       );
       
-      // El backend devuelve { users: [...] }, así que necesitamos acceder a response.data.users
       const availableUsers = response.data.users || [];
       
       // Filtrar usuarios que ya son miembros del proyecto
-      const currentMemberIds = currentMembers.map(member => member._id || member.id);
+      const currentMemberIds = projectMembers.map(member => member._id || member.id);
       const filteredUsers = availableUsers.filter(
         user => !currentMemberIds.includes(user._id || user.id)
       );
@@ -88,7 +126,7 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
       const results = [];
       const errors = [];
 
-      // Invitar usuarios uno por uno usando la API existente
+      // Invitar usuarios uno por uno
       for (const user of selectedUsers) {
         try {
           const response = await axios.post(
@@ -111,6 +149,9 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
       if (results.length > 0) {
         setSuccess(`${results.length} usuario(s) invitado(s) exitosamente`);
         setSelectedUsers([]);
+        
+        // Actualizar la lista de miembros del proyecto
+        await fetchProjectMembers();
         
         // Llamar callback si existe
         if (onInviteSuccess) {
@@ -136,6 +177,7 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
     setUserOptions([]);
     setError('');
     setSuccess('');
+    setProjectMembers([]);
     onClose();
   };
 
@@ -149,12 +191,13 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
     <Dialog 
       open={open} 
       onClose={handleClose} 
-      maxWidth="sm" 
+      maxWidth="md" 
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: 3,
-          minHeight: '400px'
+          minHeight: '500px',
+          maxHeight: '90vh'
         }
       }}
     >
@@ -167,19 +210,86 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
         </Box>
       </DialogTitle>
       
-      <DialogContent>
-        <Box display="flex" flexDirection="column" gap={3}>
-          {error && (
-            <Alert severity="error" onClose={() => setError('')}>
-              {error}
-            </Alert>
-          )}
-          
-          {success && (
-            <Alert severity="success" onClose={() => setSuccess('')}>
-              {success}
-            </Alert>
-          )}
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
+        {error && (
+          <Alert severity="error" onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert severity="success" onClose={() => setSuccess('')}>
+            {success}
+          </Alert>
+        )}
+
+        {/* Miembros actuales del proyecto */}
+        {projectMembers.length > 0 && (
+          <Box sx={{ flex: '0 0 auto' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+              Miembros actuales del proyecto ({projectMembers.length})
+            </Typography>
+            <Box
+              sx={{
+                maxHeight: '400px',
+                overflow: 'auto',
+                bgcolor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                // Estilos de scrollbar Material Design 3
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'rgba(0,0,0,0.1)',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(0,0,0,0.3)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: 'rgba(0,0,0,0.5)',
+                  },
+                },
+                // Para Firefox
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(0,0,0,0.3) rgba(0,0,0,0.1)',
+              }}
+            >
+              <List dense>
+                {projectMembers.map((member, index) => (
+                  <React.Fragment key={member._id || member.id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar src={member.avatar}>
+                          {member.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={member.name}
+                        secondary={member.email}
+                      />
+                      <Chip 
+                        label={index === 0 ? "Propietario" : "Miembro"} 
+                        size="small" 
+                        color={index === 0 ? "primary" : "default"}
+                      />
+                    </ListItem>
+                    {index < projectMembers.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </Box>
+          </Box>
+        )}
+
+        <Divider />
+
+        <Box sx={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Invitar nuevos participantes
+          </Typography>
 
           <Typography variant="body2" color="text.secondary">
             Busca y selecciona usuarios para invitar a colaborar en este proyecto.
@@ -194,6 +304,16 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
             onChange={(event, newValue) => setSelectedUsers(newValue)}
             onInputChange={(event, newInputValue) => searchUsers(newInputValue)}
             loading={searchLoading}
+            // Evitar duplicados comparando por ID
+            isOptionEqualToValue={(option, value) => 
+              (option._id || option.id) === (value._id || value.id)
+            }
+            // Deshabilitar opciones ya seleccionadas
+            getOptionDisabled={(option) => 
+              selectedUsers.some(selected => 
+                (selected._id || selected.id) === (option._id || option.id)
+              )
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -210,10 +330,25 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
                 }}
               />
             )}
-            renderOption={(props, option) => {
+            renderOption={(props, option, { selected }) => {
               const { key, ...otherProps } = props;
+              const isDisabled = selectedUsers.some(selected => 
+                (selected._id || selected.id) === (option._id || option.id)
+              );
+              
               return (
-                <Box component="li" key={key} {...otherProps} display="flex" alignItems="center" gap={1}>
+                <Box 
+                  component="li" 
+                  key={key} 
+                  {...otherProps} 
+                  display="flex" 
+                  alignItems="center" 
+                  gap={1}
+                  sx={{
+                    opacity: isDisabled ? 0.5 : 1,
+                    pointerEvents: isDisabled ? 'none' : 'auto'
+                  }}
+                >
                   <Avatar src={option.avatar} sx={{ width: 32, height: 32 }}>
                     {option.name.charAt(0).toUpperCase()}
                   </Avatar>
@@ -223,6 +358,11 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
                       {option.email}
                     </Typography>
                   </Box>
+                  {isDisabled && (
+                    <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto' }}>
+                      Ya seleccionado
+                    </Typography>
+                  )}
                 </Box>
               );
             }}
@@ -245,37 +385,64 @@ const InviteParticipantsModal = ({ open, onClose, projectId, currentMembers = []
 
           {/* Lista de usuarios seleccionados */}
           {selectedUsers.length > 0 && (
-            <Box>
+            <Box sx={{ flex: '1 1 auto', minHeight: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Usuarios seleccionados ({selectedUsers.length})
+                Usuarios seleccionados para invitar ({selectedUsers.length})
               </Typography>
-              <List dense>
-                {selectedUsers.map((user, index) => (
-                  <React.Fragment key={user._id || user.id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar src={user.avatar}>
-                          {user.name.charAt(0).toUpperCase()}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={user.name}
-                        secondary={user.email}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton 
-                          edge="end" 
-                          onClick={() => removeSelectedUser(user)}
-                          size="small"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                    {index < selectedUsers.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-              </List>
+              <Box
+                sx={{
+                  maxHeight: '150px',
+                  overflow: 'auto',
+                  bgcolor: 'action.hover',
+                  borderRadius: 2,
+                  // Estilos de scrollbar Material Design 3
+                  '&::-webkit-scrollbar': {
+                    width: '8px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'rgba(0,0,0,0.1)',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      background: 'rgba(0,0,0,0.5)',
+                    },
+                  },
+                  // Para Firefox
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'rgba(0,0,0,0.3) rgba(0,0,0,0.1)',
+                }}
+              >
+                <List dense>
+                  {selectedUsers.map((user, index) => (
+                    <React.Fragment key={user._id || user.id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar src={user.avatar}>
+                            {user.name.charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={user.name}
+                          secondary={user.email}
+                        />
+                        <ListItemSecondaryAction>
+                          <IconButton 
+                            edge="end" 
+                            onClick={() => removeSelectedUser(user)}
+                            size="small"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                      {index < selectedUsers.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Box>
             </Box>
           )}
         </Box>
