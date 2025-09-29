@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
+import { useAccessControl } from '../hooks/useAccessControl';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ const Dashboard = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+  const { handleAccessError } = useAccessControl();
 
   useEffect(() => {
     fetchProjects();
@@ -45,25 +47,49 @@ const Dashboard = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/projects', {
+      setLoading(true);
+      const response = await axios.get('/api/projects', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      if (response.ok) {
-        const data = await response.json();
-        // El backend devuelve { projects: [...] }, necesitamos extraer el array
-        const projectsArray = data.projects || data;
-        setProjects(Array.isArray(projectsArray) ? projectsArray : []);
-      } else {
-        setProjects([]);
-        console.error('Error fetching projects:', response.status, response.statusText);
-      }
+      
+      // Filtrar proyectos a los que el usuario ya no tiene acceso
+      const accessibleProjects = response.data.filter(project => {
+        return project.owner._id === user._id || 
+               project.members.some(member => member._id === user._id);
+      });
+      
+      setProjects(accessibleProjects);
+      setError('');
     } catch (error) {
       console.error('Error fetching projects:', error);
-      setProjects([]);
+      if (!handleAccessError(error)) {
+        setError('Error al cargar los proyectos');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProjectClick = async (projectId) => {
+    try {
+      // Verificar acceso antes de navegar
+      await axios.get(`/api/projects/${projectId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      navigate(`/project/${projectId}`);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        // Mostrar mensaje y actualizar la lista de proyectos
+        setError('Ya no tienes acceso a este proyecto. Se ha actualizado tu lista de proyectos.');
+        fetchProjects(); // Refrescar la lista
+      } else {
+        console.error('Error accessing project:', error);
+        setError('Error al acceder al proyecto');
+      }
     }
   };
 

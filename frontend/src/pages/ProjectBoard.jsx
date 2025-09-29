@@ -25,6 +25,8 @@ import { exportProjectToPDF } from '../utils/pdfExport';
 // Agregar import para iconos Material Design
 import { Download } from '@mui/icons-material';
 import ConnectedUsersHeader from '../components/ConnectedUsers/ConnectedUsersHeader';
+import AccessDenied from '../components/Error/AccessDenied';
+import { useAccessControl } from '../hooks/useAccessControl';
 
 const ProjectBoard = () => {
   // Cambiar projectId por id para que coincida con la ruta
@@ -34,6 +36,7 @@ const ProjectBoard = () => {
   const [currentTab, setCurrentTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState(null);
+  const { accessDenied, accessError, handleAccessError } = useAccessControl();
   const [sections, setSections] = useState({
     mission: '',
     vision: '',
@@ -64,7 +67,7 @@ const ProjectBoard = () => {
 
   // Socket.io setup
   useEffect(() => {
-    if (socket && projectId) {
+    if (socket && projectId && !accessDenied) {
       // Unirse al proyecto
       joinProject(projectId);
 
@@ -82,7 +85,7 @@ const ProjectBoard = () => {
         leaveProject(projectId);
       };
     }
-  }, [socket, projectId, joinProject, leaveProject]);
+  }, [socket, projectId, joinProject, leaveProject, accessDenied]);
 
   const fetchProject = async () => {
     try {
@@ -97,6 +100,9 @@ const ProjectBoard = () => {
       setProject(response.data);
     } catch (error) {
       console.error('Error fetching project:', error);
+      if (!handleAccessError(error)) {
+        console.error('Error no relacionado con acceso:', error);
+      }
     }
   };
 
@@ -115,10 +121,23 @@ const ProjectBoard = () => {
       }
     } catch (error) {
       console.error('Error fetching project sections:', error);
+      if (!handleAccessError(error)) {
+        console.error('Error no relacionado con acceso:', error);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // error de acceso, mostrar el componente AccessDenied
+  if (accessDenied) {
+    return (
+      <AccessDenied
+        title={accessError?.title}
+        message={accessError?.message}
+      />
+    );
+  }
 
   const handleTabChange = (event, newValue) => {
     // Limpiar el estado de edición antes de cambiar de tab
@@ -159,6 +178,11 @@ const ProjectBoard = () => {
       );
     } catch (error) {
       console.error('Error updating section:', error);
+      if (handleAccessError(error)) {
+        // error 403 se maneja automatico
+        return;
+      }
+      // para manerja otros errores aquí
     }
   };
 
@@ -174,20 +198,14 @@ const ProjectBoard = () => {
   };
 
   const handleSectionBlur = () => {
-    // Agregar este useEffect después de los otros useEffect
-    useEffect(() => {
-      return () => {
-        // Limpiar estado de edición al desmontar el componente
-        if (editingSection && socket) {
-          socket.emit('section-editing', {
-            projectId,
-            sectionKey: editingSection,
-            isEditing: false
-          });
-        }
-      };
-    }, [editingSection, socket, projectId]);
     setEditingSection(null);
+    if (socket) {
+      socket.emit('section-editing', {
+        projectId,
+        sectionKey: editingSection,
+        isEditing: false
+      });
+    }
   };
 
   const addObjective = () => {

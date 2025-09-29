@@ -7,7 +7,15 @@ const SocketContext = createContext();
 export const useSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {
-    throw new Error('useSocket debe ser usado dentro de SocketProvider');
+    console.warn('useSocket usado fuera de SocketProvider, devolviendo funciones vacías');
+    return {
+      socket: null,
+      connected: false,
+      joinProject: () => {},
+      leaveProject: () => {},
+      updateCard: () => {},
+      updateDocument: () => {}
+    };
   }
   return context;
 };
