@@ -248,17 +248,17 @@ const ProjectView = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: 4, mb: 4, px: 2 }}>
         <Typography>Cargando proyecto...</Typography>
-      </Container>
+      </Box>
     );
   }
 
   if (!project) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: 4, mb: 4, px: 2 }}>
         <Typography>Proyecto no encontrado</Typography>
-      </Container>
+      </Box>
     );
   }
 
@@ -270,9 +270,9 @@ const ProjectView = () => {
       {/* Panel de historial de cambios */}
       <ChangeHistoryPanel projectId={projectId} />
       
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: 4, mb: 4 }}>
         {/* Header del proyecto */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ p: 3, mb: 3 }}>
           <Box display="flex" alignItems="center" gap={2} mb={2}>
             {project.image && (
               <Avatar
@@ -342,10 +342,10 @@ const ProjectView = () => {
             {/* Colaboradores activos */}
             <ConnectedUsersHeader projectId={projectId} inline={true} />
           </Box>
-        </Paper>
+        </Box>
 
         {/* Navegación por pestañas */}
-        <Paper elevation={1} sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3, px: 2 }}>
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
@@ -363,35 +363,37 @@ const ProjectView = () => {
               />
             ))}
           </Tabs>
-        </Paper>
+        </Box>
 
         {/* Contenido de la sección activa */}
-        <Card elevation={2}>
-          <CardContent sx={{ p: 0 }}>
-            <Box p={3}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h5" component="h2">
-                  {activeSection.label}
-                </Typography>
-                <Tooltip title="Ver historial de versiones">
-                  <IconButton>
-                    <HistoryIcon />
-                  </IconButton>
-                </Tooltip>
+        <Box sx={{ px: 2 }}>
+          <Card elevation={2}>
+            <CardContent sx={{ p: 0 }}>
+              <Box p={3}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography variant="h5" component="h2">
+                    {activeSection.label}
+                  </Typography>
+                  <Tooltip title="Ver historial de versiones">
+                    <IconButton>
+                      <HistoryIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+                
+                <ActiveComponent
+                  projectId={projectId}
+                  sectionData={projectData[activeSection.id]}
+                  onDataUpdate={(newData) => updateSectionData(activeSection.id, newData)}
+                  user={user}
+                  project={project}
+                />
               </Box>
-              <Divider sx={{ mb: 3 }} />
-              
-              <ActiveComponent
-                projectId={projectId}
-                sectionData={projectData[activeSection.id]}
-                onDataUpdate={(newData) => updateSectionData(activeSection.id, newData)}
-                user={user}
-                project={project}
-              />
-            </Box>
-          </CardContent>
-        </Card>
-      </Container>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
     </>
   );
 };
