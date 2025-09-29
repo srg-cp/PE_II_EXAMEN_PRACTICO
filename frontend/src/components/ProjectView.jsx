@@ -59,6 +59,7 @@ const ProjectView = () => {
   const [saveStatus, setSaveStatus] = useState('saved');
   const [lastSaved, setLastSaved] = useState(null);
   const saveTimeoutRef = useRef(null);
+  // Mantener la estructura original que esperan los componentes
   const [projectData, setProjectData] = useState({
     mission: { content: '', versions: [] },
     vision: { content: '', versions: [] },
@@ -165,7 +166,17 @@ const ProjectView = () => {
           }
         }
       );
-      setProjectData(response.data);
+      
+      if (response.data) {
+        const formattedData = {};
+        Object.keys(response.data).forEach(key => {
+          formattedData[key] = {
+            content: response.data[key] || '',
+            versions: []
+          };
+        });
+        setProjectData(formattedData);
+      }
     } catch (error) {
       console.error('Error fetching project data:', error);
       if (!handleAccessError(error)) {
@@ -200,16 +211,14 @@ const ProjectView = () => {
   // Función para guardar contenido con debounce
   const saveContent = async (sectionId, contentToSave) => {
     try {
-      // Preparar las secciones actualizadas
-      const updatedSections = {
-        ...projectData,
-        [sectionId]: { ...projectData[sectionId], content: contentToSave }
-      };
-
-      // Convertir a formato que espera el backend
+      // Convertir de vuelta al formato que espera el backend
       const sectionsForBackend = {};
-      Object.keys(updatedSections).forEach(key => {
-        sectionsForBackend[key] = updatedSections[key].content;
+      Object.keys(projectData).forEach(key => {
+        if (key === sectionId) {
+          sectionsForBackend[key] = contentToSave;
+        } else {
+          sectionsForBackend[key] = projectData[key].content;
+        }
       });
 
       await axios.put(
