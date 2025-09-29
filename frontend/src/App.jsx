@@ -8,7 +8,7 @@ import Navbar from './components/Layout/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import ProjectBoard from './pages/ProjectBoard';
+import ProjectView from './components/ProjectView';
 import DocumentEditor from './pages/DocumentEditor';
 import Projects from './pages/Projects';
 import './index.css';
@@ -103,11 +103,11 @@ function App() {
                   </SocketProvider>
                 </ProtectedRoute>
               } />
-              <Route path="/project/:id" element={
+              <Route path="/project/:projectId" element={
                 <ProtectedRoute>
                   <SocketProvider>
                     <Navbar />
-                    <ProjectBoard />
+                    <ProjectView />
                   </SocketProvider>
                 </ProtectedRoute>
               } />

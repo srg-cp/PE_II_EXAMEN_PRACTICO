@@ -12,19 +12,23 @@ import {
   Chip,
   Avatar,
   IconButton,
-  Tooltip
+  Tooltip,
+  Button
 } from '@mui/material';
 import {
   Assignment as MissionIcon,
   Visibility as VisionIcon,
   TrendingUp as ObjectivesIcon,
   Analytics as FodaIcon,
-  Strategy as StrategyIcon,
+  AccountTree as StrategyIcon,
   Summarize as ConclusionsIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Download
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
+import { useAccessControl } from '../hooks/useAccessControl';
 import axios from 'axios';
 
 // Importar los componentes de cada sección
@@ -35,12 +39,21 @@ import FodaSection from './ProjectSections/FodaSection';
 import StrategySection from './ProjectSections/StrategySection';
 import ConclusionsSection from './ProjectSections/ConclusionsSection';
 
+// Importar componentes adicionales
+import ConnectedUsersHeader from './ConnectedUsers/ConnectedUsersHeader';
+import ChangeHistoryPanel from './ChangeHistory/ChangeHistoryPanel';
+import AccessDenied from './Error/AccessDenied';
+import { exportProjectToPDF } from '../utils/pdfExport';
+
 const ProjectView = () => {
   const { projectId } = useParams();
   const { user } = useAuth();
+  const { socket, joinProject, leaveProject } = useSocket();
+  const { accessDenied, accessError, handleAccessError } = useAccessControl();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [editingSection, setEditingSection] = useState(null);
   const [projectData, setProjectData] = useState({
     mission: { content: '', versions: [] },
     vision: { content: '', versions: [] },
@@ -94,12 +107,44 @@ const ProjectView = () => {
     fetchProjectData();
   }, [projectId]);
 
+  // Socket.io setup para colaboración en tiempo real
+  useEffect(() => {
+    if (socket && projectId && !accessDenied) {
+      // Unirse al proyecto
+      joinProject(projectId);
+
+      // Escuchar actualizaciones de secciones en tiempo real
+      socket.on('project-section-updated', (data) => {
+        const { sectionKey, content, updatedBy } = data;
+        setProjectData(prev => ({
+          ...prev,
+          [sectionKey]: { ...prev[sectionKey], content }
+        }));
+      });
+
+      return () => {
+        socket.off('project-section-updated');
+        leaveProject(projectId);
+      };
+    }
+  }, [socket, projectId, joinProject, leaveProject, accessDenied]);
+
   const fetchProject = async () => {
     try {
-      const response = await axios.get(`/api/projects/${projectId}`);
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/projects/${projectId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
       setProject(response.data);
     } catch (error) {
       console.error('Error fetching project:', error);
+      if (!handleAccessError(error)) {
+        console.error('Error no relacionado con acceso:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -107,14 +152,43 @@ const ProjectView = () => {
 
   const fetchProjectData = async () => {
     try {
-      const response = await axios.get(`/api/projects/${projectId}/sections`);
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/projects/${projectId}/sections`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
       setProjectData(response.data);
     } catch (error) {
       console.error('Error fetching project data:', error);
+      if (!handleAccessError(error)) {
+        console.error('Error no relacionado con acceso:', error);
+      }
     }
   };
 
+  // Verificar si hay error de acceso
+  if (accessDenied) {
+    return (
+      <AccessDenied
+        title={accessError?.title}
+        message={accessError?.message}
+      />
+    );
+  }
+
   const handleTabChange = (event, newValue) => {
+    // Limpiar el estado de edición antes de cambiar de tab
+    if (editingSection && socket) {
+      socket.emit('section-editing', {
+        projectId,
+        sectionKey: editingSection,
+        isEditing: false
+      });
+    }
+    setEditingSection(null);
     setActiveTab(newValue);
   };
 
@@ -123,6 +197,53 @@ const ProjectView = () => {
       ...prev,
       [sectionId]: newData
     }));
+
+    // Emitir cambio via Socket.io para colaboración en tiempo real
+    if (socket) {
+      socket.emit('project-section-update', {
+        projectId,
+        sectionKey: sectionId,
+        content: newData,
+        changeType: 'edit'
+      });
+    }
+  };
+
+  // Función para generar PDF del resumen ejecutivo
+  const generatePDF = async () => {
+    try {
+      // Preparar los datos del proyecto en el formato correcto
+      const projectDataForPDF = {
+        name: project?.name || 'Proyecto Sin Título',
+        description: project?.description || '',
+        image: project?.image || '',
+        status: project?.status || 'draft',
+        timeline: project?.timeline || {},
+        sections: {
+          mission: projectData.mission?.content || '',
+          vision: projectData.vision?.content || '',
+          objectives: projectData.objectives?.content || [],
+          foda: projectData.foda?.content || {},
+          strategy: projectData.strategy?.content || '',
+          conclusions: projectData.conclusions?.content || ''
+        },
+        documents: project?.documents || []
+      };
+
+      // Usar la función mejorada de exportación
+      const result = await exportProjectToPDF(projectDataForPDF);
+      
+      if (result.success) {
+        console.log('PDF generado exitosamente:', result.fileName);
+      } else {
+        console.error('Error generando PDF:', result.error);
+        alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
+      }
+      
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      alert('Error al generar el PDF. Por favor, inténtalo de nuevo.');
+    }
   };
 
   if (loading) {
@@ -145,87 +266,133 @@ const ProjectView = () => {
   const activeSection = sections[activeTab];
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header del proyecto */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={2}>
-          {project.image && (
-            <Avatar
-              src={project.image}
-              sx={{ width: 60, height: 60 }}
+    <>
+      {/* Panel de historial de cambios */}
+      <ChangeHistoryPanel projectId={projectId} />
+      
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {/* Header del proyecto */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            {project.image && (
+              <Avatar
+                src={project.image}
+                sx={{ width: 60, height: 60 }}
+              >
+                {project.name.charAt(0)}
+              </Avatar>
+            )}
+            <Box flex={1}>
+              <Typography variant="h4" component="h1" gutterBottom>
+                {project.name}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                {project.description}
+              </Typography>
+              <Box display="flex" gap={1} alignItems="center">
+                <Chip
+                  label={project.status === 'active' ? 'Activo' : 'Borrador'}
+                  color={project.status === 'active' ? 'success' : 'default'}
+                  size="small"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  Propietario: {project.owner?.name}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Contenedor para botón PDF y colaboradores activos */}
+          <Box sx={{ 
+            mt: 3, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            gap: 3,
+            flexWrap: 'wrap'
+          }}>
+            {/* Botón de descarga PDF */}
+            <Button 
+              variant="contained" 
+              startIcon={<Download />}
+              onClick={generatePDF}
+              sx={{ 
+                borderRadius: '20px',
+                textTransform: 'none',
+                fontWeight: 500,
+                px: 3,
+                py: 1.5,
+                backgroundColor: 'primary.main',
+                boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                  boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.15), 0px 1px 4px rgba(0, 0, 0, 0.3)',
+                  transform: 'translateY(-1px)'
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                  boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.24)'
+                },
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
             >
-              {project.name.charAt(0)}
-            </Avatar>
-          )}
-          <Box flex={1}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {project.name}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              {project.description}
-            </Typography>
-            <Box display="flex" gap={1} alignItems="center">
-              <Chip
-                label={project.status === 'active' ? 'Activo' : 'Borrador'}
-                color={project.status === 'active' ? 'success' : 'default'}
-                size="small"
-              />
-              <Typography variant="body2" color="text.secondary">
-                Propietario: {project.owner?.name}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-
-      {/* Navegación por pestañas */}
-      <Paper elevation={1} sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          {sections.map((section, index) => (
-            <Tab
-              key={section.id}
-              icon={section.icon}
-              label={section.label}
-              iconPosition="start"
-              sx={{ minHeight: 64 }}
-            />
-          ))}
-        </Tabs>
-      </Paper>
-
-      {/* Contenido de la sección activa */}
-      <Card elevation={2}>
-        <CardContent sx={{ p: 0 }}>
-          <Box p={3}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-              <Typography variant="h5" component="h2">
-                {activeSection.label}
-              </Typography>
-              <Tooltip title="Ver historial de versiones">
-                <IconButton>
-                  <HistoryIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-            <Divider sx={{ mb: 3 }} />
+              Descargar Resumen Ejecutivo PDF
+            </Button>
             
-            <ActiveComponent
-              projectId={projectId}
-              sectionData={projectData[activeSection.id]}
-              onDataUpdate={(newData) => updateSectionData(activeSection.id, newData)}
-              user={user}
-              project={project}
-            />
+            {/* Colaboradores activos */}
+            <ConnectedUsersHeader projectId={projectId} inline={true} />
           </Box>
-        </CardContent>
-      </Card>
-    </Container>
+        </Paper>
+
+        {/* Navegación por pestañas */}
+        <Paper elevation={1} sx={{ mb: 3 }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            {sections.map((section, index) => (
+              <Tab
+                key={section.id}
+                icon={section.icon}
+                label={section.label}
+                iconPosition="start"
+                sx={{ minHeight: 64 }}
+              />
+            ))}
+          </Tabs>
+        </Paper>
+
+        {/* Contenido de la sección activa */}
+        <Card elevation={2}>
+          <CardContent sx={{ p: 0 }}>
+            <Box p={3}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h5" component="h2">
+                  {activeSection.label}
+                </Typography>
+                <Tooltip title="Ver historial de versiones">
+                  <IconButton>
+                    <HistoryIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              <Divider sx={{ mb: 3 }} />
+              
+              <ActiveComponent
+                projectId={projectId}
+                sectionData={projectData[activeSection.id]}
+                onDataUpdate={(newData) => updateSectionData(activeSection.id, newData)}
+                user={user}
+                project={project}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      </Container>
+    </>
   );
 };
 
