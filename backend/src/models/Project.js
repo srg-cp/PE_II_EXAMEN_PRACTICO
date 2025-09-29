@@ -29,22 +29,26 @@ const projectSchema = new mongoose.Schema({
       default: ''
     },
     objectives: {
-      type: [{
+      strategic: [{
         id: Number,
         title: String,
         description: String,
-        priority: {
-          type: String,
-          enum: ['low', 'medium', 'high'],
-          default: 'medium'
-        },
-        status: {
-          type: String,
-          enum: ['pending', 'in_progress', 'completed'],
-          default: 'pending'
-        }
-      }],
-      default: []
+        specificObjectives: [{
+          id: Number,
+          title: String,
+          description: String,
+          priority: {
+            type: String,
+            enum: ['low', 'medium', 'high'],
+            default: 'medium'
+          },
+          status: {
+            type: String,
+            enum: ['pending', 'in_progress', 'completed'],
+            default: 'pending'
+          }
+        }]
+      }]
     },
     swot: {
       strengths: {

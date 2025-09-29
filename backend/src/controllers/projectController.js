@@ -146,7 +146,9 @@ const getProjectSections = async (req, res) => {
     const defaultSections = {
       mission: '',
       vision: '',
-      objectives: [],
+      objectives: {
+        strategic: []
+      },
       swot: {
         strengths: [],
         weaknesses: [],
