@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -23,7 +23,9 @@ import {
   AccountTree as StrategyIcon,
   Summarize as ConclusionsIcon,
   History as HistoryIcon,
-  Download
+  Download,
+  Save as SaveIcon,
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,6 +56,9 @@ const ProjectView = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [editingSection, setEditingSection] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('saved');
+  const [lastSaved, setLastSaved] = useState(null);
+  const saveTimeoutRef = useRef(null);
   const [projectData, setProjectData] = useState({
     mission: { content: '', versions: [] },
     vision: { content: '', versions: [] },
@@ -192,6 +197,38 @@ const ProjectView = () => {
     setActiveTab(newValue);
   };
 
+  // Función para guardar contenido con debounce
+  const saveContent = async (sectionId, contentToSave) => {
+    try {
+      // Preparar las secciones actualizadas
+      const updatedSections = {
+        ...projectData,
+        [sectionId]: { ...projectData[sectionId], content: contentToSave }
+      };
+
+      // Convertir a formato que espera el backend
+      const sectionsForBackend = {};
+      Object.keys(updatedSections).forEach(key => {
+        sectionsForBackend[key] = updatedSections[key].content;
+      });
+
+      await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/projects/${projectId}/sections`,
+        { sections: sectionsForBackend },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      setSaveStatus('saved');
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error('Error saving content:', error);
+      setSaveStatus('error');
+    }
+  };
+
   const updateSectionData = (sectionId, newData) => {
     setProjectData(prev => ({
       ...prev,
@@ -203,9 +240,33 @@ const ProjectView = () => {
       socket.emit('project-section-update', {
         projectId,
         sectionKey: sectionId,
-        content: newData,
+        content: newData.content,
         changeType: 'edit'
       });
+    }
+
+    // Auto-guardar con debounce
+    setSaveStatus('saving');
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveContent(sectionId, newData.content);
+    }, 2000); // Guardar después de 2 segundos de inactividad
+  };
+
+  // Función para obtener el icono del estado de guardado
+  const getSaveStatusIcon = () => {
+    switch (saveStatus) {
+      case 'saving':
+        return <SaveIcon sx={{ color: 'orange', animation: 'pulse 1s infinite' }} />;
+      case 'saved':
+        return <CheckCircleIcon sx={{ color: 'green' }} />;
+      case 'error':
+        return <SaveIcon sx={{ color: 'red' }} />;
+      default:
+        return null;
     }
   };
 
@@ -374,16 +435,36 @@ const ProjectView = () => {
                   <Typography variant="h5" component="h2">
                     {activeSection.label}
                   </Typography>
-                  <Tooltip title="Ver historial de versiones">
-                    <IconButton>
-                      <HistoryIcon />
-                    </IconButton>
-                  </Tooltip>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {/* Estado de guardado */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {getSaveStatusIcon()}
+                      <Typography variant="caption" color="text.secondary">
+                        {saveStatus === 'saved' && lastSaved 
+                          ? `Guardado ${lastSaved.toLocaleTimeString()}`
+                          : saveStatus === 'saving' 
+                          ? 'Guardando...' 
+                          : saveStatus === 'error'
+                          ? 'Error al guardar'
+                          : 'Sin cambios'
+                        }
+                      </Typography>
+                    </Box>
+
+                    {/* Historial de versiones */}
+                    <Tooltip title="Ver historial de versiones">
+                      <IconButton>
+                        <HistoryIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
                 <Divider sx={{ mb: 3 }} />
                 
                 <ActiveComponent
                   projectId={projectId}
+                  sectionKey={activeSection.id}
                   sectionData={projectData[activeSection.id]}
                   onDataUpdate={(newData) => updateSectionData(activeSection.id, newData)}
                   user={user}
