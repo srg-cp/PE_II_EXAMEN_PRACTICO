@@ -12,12 +12,14 @@ import {
   Typography,
   Chip,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from '@mui/material';
 import {
-  PhotoCamera,
+  AddAPhoto as PhotoCamera,
   Close as CloseIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  NoteAdd as NoteAddIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -25,7 +27,6 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    objectives: '',
     image: ''
   });
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -87,7 +88,6 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
       const projectData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        objectives: formData.objectives.trim(),
         image: formData.image || '',
         memberIds: selectedMembers.map(member => member._id)
       };
@@ -117,7 +117,7 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
   };
 
   const handleClose = () => {
-    setFormData({ name: '', description: '', objectives: '', image: '' });
+    setFormData({ name: '', description: '', image: '' });
     setSelectedMembers([]);
     setUserOptions([]);
     setImagePreview('');
@@ -125,29 +125,67 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '32px'
+        }
+      }}
+    >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Crear Nuevo Proyecto</Typography>
+        <Box display="flex" justifyContent="flex-end" alignItems="flex-start" sx={{ mb: 1.5 }}>
           <IconButton onClick={handleClose}>
             <CloseIcon />
           </IconButton>
         </Box>
+        <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
+            <NoteAddIcon sx={{ fontSize: 32 }} />
+          </Avatar>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 600,
+            fontSize: '2.5rem'
+          }}
+        >
+          Crear Proyecto
+        </Typography>
       </DialogTitle>
       
       <form onSubmit={handleSubmit}>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={3}>
             {/* Imagen del proyecto */}
-            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <Typography variant="subtitle2">Imagen del Proyecto (Opcional)</Typography>
+            <Box display="flex" flexDirection="column" alignItems="center" sx={{ mb: 3 }}>
               <Box position="relative">
-                <Avatar
-                  src={imagePreview}
-                  sx={{ width: 120, height: 120, bgcolor: 'grey.200' }}
-                >
-                  {!imagePreview && <PersonIcon sx={{ fontSize: 60 }} />}
-                </Avatar>
+                <Tooltip title="Haz clic para seleccionar una foto (opcional)" arrow>
+                  <Avatar
+                    src={imagePreview}
+                    sx={{ 
+                      width: 120, 
+                      height: 120, 
+                      bgcolor: 'grey.200',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        opacity: 0.8,
+                        transition: 'opacity 0.2s ease-in-out'
+                      }
+                    }}
+                    component="label"
+                  >
+                    {!imagePreview && <PersonIcon sx={{ fontSize: 60 }} />}
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                  </Avatar>
+                </Tooltip>
                 <IconButton
                   component="label"
                   sx={{
@@ -173,11 +211,16 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
             {/* Nombre del proyecto */}
             <TextField
               name="name"
-              label="Nombre del Proyecto"
+              label="Nombre del proyecto"
               value={formData.name}
               onChange={handleInputChange}
               required
               fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '16px'
+                }
+              }}
             />
 
             {/* Descripción */}
@@ -189,17 +232,11 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
               multiline
               rows={3}
               fullWidth
-            />
-
-            {/* Objetivos */}
-            <TextField
-              name="objectives"
-              label="Objetivos"
-              value={formData.objectives}
-              onChange={handleInputChange}
-              multiline
-              rows={2}
-              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '16px'
+                }
+              }}
             />
 
             {/* Participantes */}
@@ -216,6 +253,11 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
                   {...params}
                   label="Agregar Participantes"
                   placeholder="Buscar por nombre o email..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '16px'
+                    }
+                  }}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
@@ -260,9 +302,16 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
             />
           </Box>
         </DialogContent>
-
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleClose} disabled={creating}>
+          <Button onClick={handleClose} disabled={creating}
+            sx={{
+              borderRadius: '32px',
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              fontWeight: 600
+            }}
+          >
             Cancelar
           </Button>
           <Button
@@ -270,6 +319,13 @@ const CreateProjectModal = ({ open, onClose, onProjectCreated }) => {
             variant="contained"
             disabled={!formData.name.trim() || creating}
             startIcon={creating && <CircularProgress size={20} />}
+            sx={{
+              borderRadius: '32px',
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              fontWeight: 600
+            }}
           >
             {creating ? 'Creando...' : 'Crear Proyecto'}
           </Button>

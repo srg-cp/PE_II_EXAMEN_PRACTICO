@@ -22,6 +22,7 @@ import {
   Analytics as FodaIcon,
   AccountTree as StrategyIcon,
   Summarize as ConclusionsIcon,
+  Assessment as ValueChainIcon,
   History as HistoryIcon,
   Download,
   Save as SaveIcon,
@@ -40,6 +41,7 @@ import ObjectivesSection from './ProjectSections/ObjectivesSection';
 import FodaSection from './ProjectSections/FodaSection';
 import StrategySection from './ProjectSections/StrategySection';
 import ConclusionsSection from './ProjectSections/ConclusionsSection';
+import ValueChainDiagnosticSection from './ProjectSections/ValueChainDiagnosticSection';
 
 // Importar componentes adicionales
 import ConnectedUsersHeader from './ConnectedUsers/ConnectedUsersHeader';
@@ -66,7 +68,8 @@ const ProjectView = () => {
     objectives: { content: '', versions: [] },
     foda: { content: '', versions: [] },
     strategy: { content: '', versions: [] },
-    conclusions: { content: '', versions: [] }
+    conclusions: { content: '', versions: [] },
+    valueChainDiagnostic: { content: '', versions: [] }
   });
 
   const sections = [
@@ -93,6 +96,12 @@ const ProjectView = () => {
       label: 'Análisis FODA',
       icon: <FodaIcon />,
       component: FodaSection
+    },
+    {
+      id: 'valueChainDiagnostic',
+      label: 'Autodiagnóstico Cadena de Valor',
+      icon: <ValueChainIcon />,
+      component: ValueChainDiagnosticSection
     },
     {
       id: 'strategy',
