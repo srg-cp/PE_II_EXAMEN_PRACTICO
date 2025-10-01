@@ -14,7 +14,7 @@ const StrategySection = ({ projectId, sectionData, onDataUpdate }) => {
       theme="snow"
       value={content}
       onChange={handleContentChange}
-      placeholder="Describe la identificación de estrategia del proyecto aquí..."
+      placeholder="Escriba en el siguiente recuadro la estrategia identificada en la Matriz FODA"
       style={{ 
         height: '400px',
         '& .ql-editor': {

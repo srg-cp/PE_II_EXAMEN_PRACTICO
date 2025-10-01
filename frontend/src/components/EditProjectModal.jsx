@@ -20,13 +20,15 @@ import {
   Switch,
   FormControlLabel,
   Divider,
-  Alert
+  Alert,
+  Tooltip
 } from '@mui/material';
 import {
-  PhotoCamera,
+  AddAPhoto as PhotoCamera,
   Close as CloseIcon,
   Person as PersonIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -163,33 +165,71 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Editar Proyecto</Typography>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '32px'
+        }
+      }}
+    >
+      <DialogTitle sx={{ mb: -5 }}>
+        <Box display="flex" justifyContent="flex-end" alignItems="flex-start" sx={{ mb: 1 }}>
           <IconButton onClick={handleClose}>
             <CloseIcon />
           </IconButton>
         </Box>
+        <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main' }}>
+          <EditIcon sx={{ fontSize: 32 }} />
+        </Avatar>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 600,
+            fontSize: '2.5rem'
+          }}
+        >
+          Editar Proyecto
+        </Typography>
       </DialogTitle>
       
       <form onSubmit={handleSubmit}>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={3}>
             {error && (
-              <Alert severity="error">{error}</Alert>
+              <Alert severity="error" sx={{ borderRadius: '16px' }}>{error}</Alert>
             )}
 
             {/* Imagen del proyecto */}
-            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <Typography variant="subtitle2">Imagen del Proyecto</Typography>
+            <Box display="flex" flexDirection="column" alignItems="center">
               <Box position="relative">
-                <Avatar
-                  src={imagePreview}
-                  sx={{ width: 120, height: 120, bgcolor: 'grey.200' }}
-                >
-                  {!imagePreview && <PersonIcon sx={{ fontSize: 60 }} />}
-                </Avatar>
+                <Tooltip title="Haz clic para seleccionar una foto (opcional)" arrow>
+                  <Avatar
+                    src={imagePreview}
+                    sx={{ 
+                      width: 120, 
+                      height: 120, 
+                      bgcolor: 'grey.200',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        opacity: 0.8,
+                        transition: 'opacity 0.2s ease-in-out'
+                      }
+                    }}
+                    component="label"
+                  >
+                    {!imagePreview && <PersonIcon sx={{ fontSize: 60 }} />}
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                  </Avatar>
+                </Tooltip>
                 <IconButton
                   component="label"
                   sx={{
@@ -214,8 +254,8 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
                     onClick={removeImage}
                     sx={{
                       position: 'absolute',
-                      top: -8,
-                      right: -8,
+                      top: 6,
+                      right: -4,
                       bgcolor: 'error.main',
                       color: 'white',
                       '&:hover': { bgcolor: 'error.dark' }
@@ -236,6 +276,11 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
               onChange={handleInputChange}
               required
               fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '16px'
+                }
+              }}
             />
 
             <TextField
@@ -246,16 +291,11 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
               multiline
               rows={3}
               fullWidth
-            />
-
-            <TextField
-              name="objectives"
-              label="Objetivos"
-              value={formData.objectives}
-              onChange={handleInputChange}
-              multiline
-              rows={2}
-              fullWidth
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '16px'
+                }
+              }}
             />
 
             {/* Estado del proyecto */}
@@ -266,6 +306,9 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
                 value={formData.status}
                 onChange={handleInputChange}
                 label="Estado del Proyecto"
+                sx={{
+                  borderRadius: '16px'
+                }}
               >
                 <MenuItem value="draft">Borrador</MenuItem>
                 <MenuItem value="active">Activo</MenuItem>
@@ -274,113 +317,123 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
               </Select>
             </FormControl>
 
-            <Divider />
+            {/* Mostrar owner */}
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Propietario:
+              </Typography>
+              <Chip
+                avatar={<Avatar src={project?.owner?.avatar}>{project?.owner?.name?.charAt(0)}</Avatar>}
+                label={`${project?.owner?.name} (Propietario)`}
+                color="primary"
+                variant="outlined"
+                sx={{ borderRadius: '16px' }}
+              />
+            </Box>
 
             {/* Participantes */}
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Gestionar Participantes
-              </Typography>
-              
-              {/* Mostrar owner */}
-              <Box mb={2}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Propietario:
-                </Typography>
-                <Chip
-                  avatar={<Avatar src={project?.owner?.avatar}>{project?.owner?.name?.charAt(0)}</Avatar>}
-                  label={`${project?.owner?.name} (Propietario)`}
-                  color="primary"
-                  variant="outlined"
+            <Autocomplete
+              multiple
+              options={userOptions}
+              getOptionLabel={(option) => `${option.name} (${option.email})`}
+              value={selectedMembers}
+              onChange={(event, newValue) => setSelectedMembers(newValue)}
+              onInputChange={(event, newInputValue) => searchUsers(newInputValue)}
+              loading={searchLoading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Agregar/Quitar Participantes"
+                  placeholder="Buscar por nombre o email..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '16px'
+                    }
+                  }}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
                 />
-              </Box>
-
-              {/* Agregar/quitar participantes */}
-              <Autocomplete
-                multiple
-                options={userOptions}
-                getOptionLabel={(option) => `${option.name} (${option.email})`}
-                value={selectedMembers}
-                onChange={(event, newValue) => setSelectedMembers(newValue)}
-                onInputChange={(event, newInputValue) => searchUsers(newInputValue)}
-                loading={searchLoading}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Agregar/Quitar Participantes"
-                    placeholder="Buscar por nombre o email..."
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps} display="flex" alignItems="center" gap={1}>
-                      <Avatar src={option.avatar} sx={{ width: 32, height: 32 }}>
-                        {option.name.charAt(0).toUpperCase()}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2">{option.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.email}
-                        </Typography>
-                      </Box>
+              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={key} {...otherProps} display="flex" alignItems="center" gap={1}>
+                    <Avatar src={option.avatar} sx={{ width: 32, height: 32 }}>
+                      {option.name.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.email}
+                      </Typography>
                     </Box>
-                  );
-                }}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
+                  </Box>
+                );
+              }}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...otherProps } = getTagProps({ index });
+                  return (
                     <Chip
-                      {...getTagProps({ index })}
-                      key={option._id}
+                      key={key}
+                      {...otherProps}
                       avatar={<Avatar src={option.avatar}>{option.name.charAt(0)}</Avatar>}
                       label={option.name}
                       size="small"
                     />
-                  ))
-                }
-              />
-            </Box>
-
-            <Divider />
+                  );
+                })
+              }
+            />
 
             {/* Configuraciones */}
             <Box>
-              <Typography variant="subtitle1" gutterBottom>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
                 Configuraciones del Proyecto
               </Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings.isPublic}
-                    onChange={handleSettingsChange('isPublic')}
-                  />
-                }
-                label="Proyecto público"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings.allowComments}
-                    onChange={handleSettingsChange('allowComments')}
-                  />
-                }
-                label="Permitir comentarios"
-              />
+              <Box display="flex" flexDirection="row" gap={3} flexWrap="wrap">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.isPublic}
+                      onChange={handleSettingsChange('isPublic')}
+                    />
+                  }
+                  label="Proyecto público"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.allowComments}
+                      onChange={handleSettingsChange('allowComments')}
+                    />
+                  }
+                  label="Permitir comentarios"
+                />
+              </Box>
             </Box>
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleClose} disabled={updating}>
+          <Button 
+            onClick={handleClose} 
+            disabled={updating}
+            sx={{
+              borderRadius: '32px',
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              fontWeight: 600
+            }}
+          >
             Cancelar
           </Button>
           <Button
@@ -388,6 +441,13 @@ const EditProjectModal = ({ open, onClose, project, onProjectUpdated }) => {
             variant="contained"
             disabled={!formData.name.trim() || updating}
             startIcon={updating && <CircularProgress size={20} />}
+            sx={{
+              borderRadius: '32px',
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              fontWeight: 600
+            }}
           >
             {updating ? 'Actualizando...' : 'Actualizar Proyecto'}
           </Button>

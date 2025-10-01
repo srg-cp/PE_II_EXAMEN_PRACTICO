@@ -223,7 +223,7 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
     });
   };
 
-  // Manejar cambio de valoración
+  // Manejar cambio de valoración (sin deselección automática)
   const handleRatingChange = (itemId, value) => {
     const newDiagnostic = {
       ...diagnosticData,
@@ -233,20 +233,36 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
     updateData(newDiagnostic, strengths, weaknesses);
   };
 
+  // Función para quitar selección
+  const clearSelection = (itemId) => {
+    const newDiagnostic = { ...diagnosticData };
+    delete newDiagnostic[itemId];
+    setDiagnosticData(newDiagnostic);
+    updateData(newDiagnostic, strengths, weaknesses);
+  };
+
   // Calcular estadísticas
   const calculateStats = () => {
-    const values = Object.values(diagnosticData).filter(v => v !== undefined);
-    if (values.length === 0) return { average: 0, total: 0, completed: 0 };
+    // Filtrar solo valores que existen (incluyendo 0)
+    const values = Object.values(diagnosticData).filter(v => v !== undefined && v !== null);
+    if (values.length === 0) return { average: 0, total: 0, completed: 0, improvementPotential: 0 };
     
     const total = values.reduce((sum, val) => sum + val, 0);
     const average = total / values.length;
     const completed = values.length;
     
-    return { average, total, completed };
+    // Calcular potencial de mejora: (1 - (suma total / (25 * 4))) * 100
+    const maxPossibleScore = diagnosticItems.length * 4; // 25 items * 4 puntos máximos
+    const improvementPotential = completed === diagnosticItems.length 
+      ? (1 - (total / maxPossibleScore)) * 100 
+      : 0;
+    
+    return { average, total, completed, improvementPotential };
   };
 
   const stats = calculateStats();
   const completionPercentage = (stats.completed / diagnosticItems.length) * 100;
+  const isAllCompleted = stats.completed === diagnosticItems.length;
 
   // Obtener color según la puntuación
   const getScoreColor = (score) => {
@@ -266,6 +282,7 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
 
   // Agregar fortaleza
   const addStrength = () => {
+    if (!isAllCompleted) return;
     const newStrengths = [...strengths, ''];
     setStrengths(newStrengths);
     updateData(diagnosticData, newStrengths, weaknesses);
@@ -273,6 +290,7 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
 
   // Agregar debilidad
   const addWeakness = () => {
+    if (!isAllCompleted) return;
     const newWeaknesses = [...weaknesses, ''];
     setWeaknesses(newWeaknesses);
     updateData(diagnosticData, strengths, newWeaknesses);
@@ -347,10 +365,10 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
           <Grid item xs={12} md={3}>
             <Card elevation={0} sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
               <Typography variant="h3" fontWeight={700} sx={{ color: getScoreColor(stats.average) }}>
-                {stats.average.toFixed(1)}
+                {isAllCompleted ? `${stats.improvementPotential.toFixed(1)}%` : '-'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Puntuación promedio
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                Potencial de Mejora de la Cadena de Valor Interna
               </Typography>
             </Card>
           </Grid>
@@ -426,9 +444,37 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                       backgroundColor: diagnosticData[item.id] !== undefined 
                         ? alpha(theme.palette.success.main, 0.02) 
                         : alpha(theme.palette.grey[500], 0.02),
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      position: 'relative'
                     }}
                   >
+                    {/* Botón para quitar selección - solo visible si hay selección */}
+                    {diagnosticData[item.id] !== undefined && (
+                      <Button
+                        size="small"
+                        onClick={() => clearSelection(item.id)}
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          minWidth: 'auto',
+                          width: 32,
+                          height: 24,
+                          fontSize: '0.7rem',
+                          color: theme.palette.text.secondary,
+                          backgroundColor: alpha(theme.palette.grey[500], 0.1),
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.error.main, 0.1),
+                            color: theme.palette.error.main
+                          },
+                          borderRadius: 1,
+                          zIndex: 1
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    )}
+
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
                       <Typography sx={{ fontSize: '1.5rem', minWidth: 32 }}>
                         {item.icon}
@@ -449,14 +495,14 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                     <FormControl component="fieldset">
                       <RadioGroup
                         row
-                        value={diagnosticData[item.id] || ''}
+                        value={diagnosticData[item.id] !== undefined ? diagnosticData[item.id].toString() : ''}
                         onChange={(e) => handleRatingChange(item.id, e.target.value)}
                         sx={{ gap: 2, justifyContent: 'center' }}
                       >
                         {ratingOptions.map((option) => (
                           <FormControlLabel
                             key={option.value}
-                            value={option.value}
+                            value={option.value.toString()}
                             control={
                               <Radio 
                                 sx={{ 
@@ -535,7 +581,8 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                     p: 3, 
                     borderRadius: 3,
                     border: `2px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                    backgroundColor: alpha(theme.palette.success.main, 0.02)
+                    backgroundColor: alpha(theme.palette.success.main, 0.02),
+                    opacity: isAllCompleted ? 1 : 0.5
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
@@ -547,6 +594,7 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                       onClick={addStrength}
                       variant="contained"
                       color="success"
+                      disabled={!isAllCompleted}
                       sx={{ borderRadius: 2 }}
                     >
                       Agregar
@@ -554,41 +602,49 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                   </Box>
                   
                   <Stack spacing={2}>
-                    {strengths.map((strength, index) => (
-                      <Box key={index} sx={{ display: 'flex', gap: 1 }}>
-                        <Typography sx={{ mt: 1, color: 'success.main', fontWeight: 'bold' }}>
-                          F{index + 1}:
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          value={strength}
-                          onChange={(e) => updateStrength(index, e.target.value)}
-                          placeholder="Describe una fortaleza..."
-                          variant="outlined"
-                          size="small"
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': { 
-                              borderRadius: 2,
-                              backgroundColor: theme.palette.background.paper
-                            }
-                          }}
-                        />
-                        <Button 
-                          size="small" 
-                          color="error" 
-                          onClick={() => removeStrength(index)}
-                          sx={{ minWidth: 'auto', px: 1 }}
-                        >
-                          ✕
-                        </Button>
-                      </Box>
-                    ))}
-                    
-                    {strengths.length === 0 && (
-                      <Alert severity="info" sx={{ borderRadius: 2 }}>
-                        Haz clic en "Agregar" para identificar las fortalezas de tu cadena de valor.
+                    {isAllCompleted ? (
+                      <>
+                        {strengths.map((strength, index) => (
+                          <Box key={index} sx={{ display: 'flex', gap: 1 }}>
+                            <Typography sx={{ mt: 1, color: 'success.main', fontWeight: 'bold' }}>
+                              F{index + 1}:
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={2}
+                              value={strength}
+                              onChange={(e) => updateStrength(index, e.target.value)}
+                              placeholder="Describe una fortaleza..."
+                              variant="outlined"
+                              size="small"
+                              sx={{ 
+                                '& .MuiOutlinedInput-root': { 
+                                  borderRadius: 2,
+                                  backgroundColor: theme.palette.background.paper
+                                }
+                              }}
+                            />
+                            <Button 
+                              size="small" 
+                              color="error" 
+                              onClick={() => removeStrength(index)}
+                              sx={{ minWidth: 'auto', px: 1 }}
+                            >
+                              ✕
+                            </Button>
+                          </Box>
+                        ))}
+                        
+                        {strengths.length === 0 && (
+                          <Alert severity="info" sx={{ borderRadius: 2 }}>
+                            Haz clic en "Agregar" para identificar las fortalezas de tu cadena de valor.
+                          </Alert>
+                        )}
+                      </>
+                    ) : (
+                      <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                        Completa todas las valoraciones para poder agregar fortalezas.
                       </Alert>
                     )}
                   </Stack>
@@ -603,7 +659,8 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                     p: 3, 
                     borderRadius: 3,
                     border: `2px solid ${alpha(theme.palette.error.main, 0.2)}`,
-                    backgroundColor: alpha(theme.palette.error.main, 0.02)
+                    backgroundColor: alpha(theme.palette.error.main, 0.02),
+                    opacity: isAllCompleted ? 1 : 0.5
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
@@ -615,6 +672,7 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                       onClick={addWeakness}
                       variant="contained"
                       color="error"
+                      disabled={!isAllCompleted}
                       sx={{ borderRadius: 2 }}
                     >
                       Agregar
@@ -622,41 +680,49 @@ const ValueChainDiagnosticSection = ({ projectId, sectionData, onDataUpdate }) =
                   </Box>
                   
                   <Stack spacing={2}>
-                    {weaknesses.map((weakness, index) => (
-                      <Box key={index} sx={{ display: 'flex', gap: 1 }}>
-                        <Typography sx={{ mt: 1, color: 'error.main', fontWeight: 'bold' }}>
-                          D{index + 1}:
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={2}
-                          value={weakness}
-                          onChange={(e) => updateWeakness(index, e.target.value)}
-                          placeholder="Describe una debilidad..."
-                          variant="outlined"
-                          size="small"
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': { 
-                              borderRadius: 2,
-                              backgroundColor: theme.palette.background.paper
-                            }
-                          }}
-                        />
-                        <Button 
-                          size="small" 
-                          color="error" 
-                          onClick={() => removeWeakness(index)}
-                          sx={{ minWidth: 'auto', px: 1 }}
-                        >
-                          ✕
-                        </Button>
-                      </Box>
-                    ))}
-                    
-                    {weaknesses.length === 0 && (
+                    {isAllCompleted ? (
+                      <>
+                        {weaknesses.map((weakness, index) => (
+                          <Box key={index} sx={{ display: 'flex', gap: 1 }}>
+                            <Typography sx={{ mt: 1, color: 'error.main', fontWeight: 'bold' }}>
+                              D{index + 1}:
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={2}
+                              value={weakness}
+                              onChange={(e) => updateWeakness(index, e.target.value)}
+                              placeholder="Describe una debilidad..."
+                              variant="outlined"
+                              size="small"
+                              sx={{ 
+                                '& .MuiOutlinedInput-root': { 
+                                  borderRadius: 2,
+                                  backgroundColor: theme.palette.background.paper
+                                }
+                              }}
+                            />
+                            <Button 
+                              size="small" 
+                              color="error" 
+                              onClick={() => removeWeakness(index)}
+                              sx={{ minWidth: 'auto', px: 1 }}
+                            >
+                              ✕
+                            </Button>
+                          </Box>
+                        ))}
+                        
+                        {weaknesses.length === 0 && (
+                          <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                            Haz clic en "Agregar" para identificar las debilidades de tu cadena de valor.
+                          </Alert>
+                        )}
+                      </>
+                    ) : (
                       <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                        Haz clic en "Agregar" para identificar las debilidades de tu cadena de valor.
+                        Completa todas las valoraciones para poder agregar debilidades.
                       </Alert>
                     )}
                   </Stack>

@@ -80,6 +80,20 @@ const projectSchema = new mongoose.Schema({
         default: []
       }
     },
+    valueChainDiagnostic: {
+      diagnostic: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
+      },
+      strengths: {
+        type: [String],
+        default: []
+      },
+      weaknesses: {
+        type: [String],
+        default: []
+      }
+    },
     strategy: {
       type: String,
       default: ''
