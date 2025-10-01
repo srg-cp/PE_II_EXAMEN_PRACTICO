@@ -109,12 +109,12 @@ const ChangeHistoryPanel = ({ projectId }) => {
 
   const sections = [
     { key: 'all', label: 'General', icon: '📋', color: theme.palette.primary.main },
-    { key: 'mission', label: 'Misión', icon: '🎯', color: theme.palette.success.main },
-    { key: 'vision', label: 'Visión', icon: '👁️', color: theme.palette.warning.main },
-    { key: 'objectives', label: 'Objetivos', icon: '📝', color: theme.palette.error.main },
-    { key: 'swot', label: 'FODA', icon: '📊', color: theme.palette.secondary.main },
-    { key: 'strategy', label: 'Estrategia', icon: '🎲', color: theme.palette.info.main },
-    { key: 'conclusions', label: 'Conclusiones', icon: '✅', color: theme.palette.success.dark }
+    { key: 'mission', label: 'Misión', icon: '🎯', color: theme.palette.primary.main },
+    { key: 'vision', label: 'Visión', icon: '👁️', color: theme.palette.info.main },
+    { key: 'objectives', label: 'Objetivos', icon: '🎯', color: theme.palette.success.main },
+    { key: 'valueChainDiagnostic', label: 'Cadena de Valor', icon: '📊', color: theme.palette.warning.main },
+    { key: 'strategy', label: 'Estrategia', icon: '🚀', color: theme.palette.error.main },
+    { key: 'conclusions', label: 'Conclusiones', icon: '✅', color: theme.palette.secondary.main }
   ];
 
   // Cargar historial de cambios - CORREGIDO

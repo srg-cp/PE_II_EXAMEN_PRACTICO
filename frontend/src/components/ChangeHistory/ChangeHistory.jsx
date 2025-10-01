@@ -84,7 +84,7 @@ const ChangeHistory = ({ projectId }) => {
       mission: 'Misión',
       vision: 'Visión',
       objectives: 'Objetivos',
-      swot: 'FODA',
+      valueChainDiagnostic: 'Cadena de Valor',
       strategy: 'Estrategia',
       conclusions: 'Conclusiones'
     };

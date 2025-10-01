@@ -10,7 +10,7 @@ const changeHistorySchema = new mongoose.Schema({
   sectionKey: {
     type: String,
     required: true,
-    enum: ['mission', 'vision', 'objectives', 'swot', 'strategy', 'conclusions', 'valueChainDiagnostic', 'general']
+    enum: ['mission', 'vision', 'objectives', 'strategy', 'conclusions', 'valueChainDiagnostic', 'general']
   },
   changeType: {
     type: String,

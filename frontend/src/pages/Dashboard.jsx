@@ -46,6 +46,12 @@ const Dashboard = () => {
   }, []);
 
   const fetchProjects = async () => {
+    // Verificar que el usuario esté disponible antes de proceder
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await axios.get('/api/projects', {
@@ -54,13 +60,8 @@ const Dashboard = () => {
         }
       });
       
-      // Filtrar proyectos a los que el usuario ya no tiene acceso
-      const accessibleProjects = response.data.filter(project => {
-        return project.owner._id === user._id || 
-               project.members.some(member => member._id === user._id);
-      });
-      
-      setProjects(accessibleProjects);
+      // El backend ya filtra por acceso, no necesitamos filtrar aquí
+      setProjects(response.data);
       setError('');
     } catch (error) {
       console.error('Error fetching projects:', error);

@@ -66,9 +66,8 @@ boardSchema.pre('save', function(next) {
       { title: 'Misión', position: 1, cards: [] },
       { title: 'Visión', position: 2, cards: [] },
       { title: 'Objetivos', position: 3, cards: [] },
-      { title: 'FODA', position: 4, cards: [] },
-      { title: 'Estrategias', position: 5, cards: [] },
-      { title: 'Conclusiones', position: 6, cards: [] }
+      { title: 'Estrategias', position: 4, cards: [] },
+      { title: 'Conclusiones', position: 5, cards: [] }
     ];
   }
   next();

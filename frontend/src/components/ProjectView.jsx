@@ -19,7 +19,6 @@ import {
   Assignment as MissionIcon,
   Visibility as VisionIcon,
   TrendingUp as ObjectivesIcon,
-  Analytics as FodaIcon,
   AccountTree as StrategyIcon,
   Summarize as ConclusionsIcon,
   Assessment as ValueChainIcon,
@@ -38,7 +37,6 @@ import axios from 'axios';
 import MissionSection from './ProjectSections/MissionSection';
 import VisionSection from './ProjectSections/VisionSection';
 import ObjectivesSection from './ProjectSections/ObjectivesSection';
-import FodaSection from './ProjectSections/FodaSection';
 import StrategySection from './ProjectSections/StrategySection';
 import ConclusionsSection from './ProjectSections/ConclusionsSection';
 import ValueChainDiagnosticSection from './ProjectSections/ValueChainDiagnosticSection';
@@ -66,7 +64,6 @@ const ProjectView = () => {
     mission: { content: '', versions: [] },
     vision: { content: '', versions: [] },
     objectives: { content: '', versions: [] },
-    foda: { content: '', versions: [] },
     strategy: { content: '', versions: [] },
     conclusions: { content: '', versions: [] },
     valueChainDiagnostic: { content: '', versions: [] }
@@ -90,12 +87,6 @@ const ProjectView = () => {
       label: 'Objetivos Estratégicos',
       icon: <ObjectivesIcon />,
       component: ObjectivesSection
-    },
-    {
-      id: 'foda',
-      label: 'Análisis FODA',
-      icon: <FodaIcon />,
-      component: FodaSection
     },
     {
       id: 'valueChainDiagnostic',
@@ -302,7 +293,6 @@ const ProjectView = () => {
           mission: projectData.mission?.content || '',
           vision: projectData.vision?.content || '',
           objectives: projectData.objectives?.content || [],
-          foda: projectData.foda?.content || {},
           strategy: projectData.strategy?.content || '',
           conclusions: projectData.conclusions?.content || ''
         },

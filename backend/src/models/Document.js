@@ -20,6 +20,11 @@ const documentSchema = new mongoose.Schema({
     enum: ['mission', 'vision', 'objectives', 'swot', 'strategies', 'conclusions', 'general'],
     default: 'general'
   },
+  sectionType: {
+    type: String,
+    enum: ['mission', 'vision', 'objectives', 'strategies', 'conclusions', 'general'],
+    default: 'general'
+  },
   lastEditedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

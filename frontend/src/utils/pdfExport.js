@@ -187,7 +187,7 @@ export const exportProjectToPDF = async (projectData) => {
       '4. Visión Estratégica',
       '5. Objetivos Estratégicos',
       '6. Análisis FODA',
-      '7. Estrategias de Implementación',
+      '7. Identificación De Estrategia',
       '8. Conclusiones'
     ];
     
@@ -217,14 +217,64 @@ export const exportProjectToPDF = async (projectData) => {
     pdf.addPage();
     yPosition = margin;
 
-    // 1. Resumen Ejecutivo mejorado
-    addSection('1. RESUMEN EJECUTIVO', 
-      `Este documento presenta el Plan Estratégico de Tecnologías de la Información para ${projectData.name || 'la organización'}. ` +
+    // 1. Resumen Ejecutivo mejorado con objetivos estratégicos y análisis FODA
+    let executiveSummary = `Este documento presenta el Plan Estratégico de Tecnologías de la Información para ${projectData.name || 'la organización'}. ` +
       'El plan establece la dirección estratégica, objetivos y iniciativas clave para alinear la tecnología con los objetivos del negocio. ' +
       'A través de un análisis exhaustivo de la situación actual y las necesidades futuras, se proponen estrategias innovadoras que ' +
-      'permitirán optimizar los recursos tecnológicos y mejorar la competitividad organizacional.',
-      '📋'
-    );
+      'permitirán optimizar los recursos tecnológicos y mejorar la competitividad organizacional.\n\n';
+
+    // Agregar objetivos estratégicos al resumen ejecutivo - ESTRUCTURA CORREGIDA
+    if (projectData.sections?.objectives?.strategic && Array.isArray(projectData.sections.objectives.strategic) && projectData.sections.objectives.strategic.length > 0) {
+      executiveSummary += 'OBJETIVOS ESTRATÉGICOS:\n';
+      projectData.sections.objectives.strategic.forEach((strategic, index) => {
+        if (strategic.title && strategic.title.trim()) {
+          executiveSummary += `${index + 1}. ${strategic.title}\n`;
+          if (strategic.description && strategic.description.trim()) {
+            executiveSummary += `   ${strategic.description}\n`;
+          }
+        }
+      });
+      executiveSummary += '\n';
+    }
+
+    // Agregar análisis FODA - ESTRUCTURA CORREGIDA
+    let fodaData = null;
+    
+    // Intentar obtener los datos del análisis FODA de diferentes estructuras posibles
+    if (projectData.sections?.valueChainDiagnostic?.content) {
+      const content = typeof projectData.sections.valueChainDiagnostic.content === 'string' 
+        ? JSON.parse(projectData.sections.valueChainDiagnostic.content) 
+        : projectData.sections.valueChainDiagnostic.content;
+      fodaData = content;
+    } else if (projectData.sections?.valueChainDiagnostic) {
+      fodaData = projectData.sections.valueChainDiagnostic;
+    }
+
+    if (fodaData && ((fodaData.strengths && fodaData.strengths.length > 0) || (fodaData.weaknesses && fodaData.weaknesses.length > 0))) {
+      executiveSummary += 'ANÁLISIS FODA - POTENCIAL DE MEJORA DE LA CADENA DE VALOR INTERNA:\n\n';
+      
+      if (fodaData.strengths && fodaData.strengths.length > 0) {
+        executiveSummary += 'FORTALEZAS:\n';
+        fodaData.strengths.forEach((strength) => {
+          if (strength && strength.trim()) {
+            executiveSummary += `• ${strength}\n`;
+          }
+        });
+        executiveSummary += '\n';
+      }
+      
+      if (fodaData.weaknesses && fodaData.weaknesses.length > 0) {
+        executiveSummary += 'DEBILIDADES:\n';
+        fodaData.weaknesses.forEach((weakness) => {
+          if (weakness && weakness.trim()) {
+            executiveSummary += `• ${weakness}\n`;
+          }
+        });
+        executiveSummary += '\n';
+      }
+    }
+
+    addSection('1. RESUMEN EJECUTIVO', executiveSummary);
 
     // 2. Datos Generales
     let generalData = `Nombre del Proyecto: ${projectData.name || 'No especificado'}\n`;
@@ -239,77 +289,81 @@ export const exportProjectToPDF = async (projectData) => {
     }
     generalData += `Estado: ${projectData.status || 'Borrador'}`;
     
-    addSection('2. DATOS GENERALES DEL PROYECTO', generalData, '📊');
+    addSection('2. DATOS GENERALES DEL PROYECTO', generalData);
 
-    // Procesar las secciones del proyecto con iconos
+    // Procesar las secciones del proyecto - CORREGIDO
     if (projectData.sections) {
       if (projectData.sections.mission) {
-        addSection('3. MISIÓN ORGANIZACIONAL', projectData.sections.mission, '🎯');
+        addSection('3. MISIÓN ORGANIZACIONAL', projectData.sections.mission);
       }
       
       if (projectData.sections.vision) {
-        addSection('4. VISIÓN ESTRATÉGICA', projectData.sections.vision, '🔮');
+        addSection('4. VISIÓN ESTRATÉGICA', projectData.sections.vision);
       }
       
-      if (projectData.sections.objectives && projectData.sections.objectives.length > 0) {
+      // Objetivos estratégicos - ESTRUCTURA CORREGIDA
+      if (projectData.sections.objectives?.strategic && Array.isArray(projectData.sections.objectives.strategic) && projectData.sections.objectives.strategic.length > 0) {
         let objectivesContent = '';
-        projectData.sections.objectives.forEach((obj, index) => {
-          objectivesContent += `${index + 1}. ${obj.title}\n`;
-          if (obj.description) {
-            objectivesContent += `   Descripción: ${obj.description}\n`;
+        projectData.sections.objectives.strategic.forEach((strategic, index) => {
+          if (strategic.title && strategic.title.trim()) {
+            objectivesContent += `${index + 1}. ${strategic.title}\n`;
+            if (strategic.description && strategic.description.trim()) {
+              objectivesContent += `   Descripción: ${strategic.description}\n`;
+            }
+            
+            // Agregar objetivos específicos si existen
+            if (strategic.specificObjectives && Array.isArray(strategic.specificObjectives) && strategic.specificObjectives.length > 0) {
+              objectivesContent += '   Objetivos Específicos:\n';
+              strategic.specificObjectives.forEach((specific, specIndex) => {
+                if (specific.title && specific.title.trim()) {
+                  objectivesContent += `   ${specIndex + 1}. ${specific.title}\n`;
+                  if (specific.description && specific.description.trim()) {
+                    objectivesContent += `      ${specific.description}\n`;
+                  }
+                  objectivesContent += `      Prioridad: ${specific.priority || 'Media'}\n`;
+                  objectivesContent += `      Estado: ${specific.status || 'Pendiente'}\n`;
+                }
+              });
+            }
+            objectivesContent += '\n';
           }
-          objectivesContent += `   Prioridad: ${obj.priority || 'Media'}\n`;
-          objectivesContent += `   Estado: ${obj.status || 'Pendiente'}\n\n`;
         });
-        addSection('5. OBJETIVOS ESTRATÉGICOS', objectivesContent, '🎯');
+        addSection('5. OBJETIVOS ESTRATÉGICOS', objectivesContent);
       }
-      
-      if (projectData.sections.swot) {
-        let swotContent = '';
-        const swot = projectData.sections.swot;
+
+      // SECCIÓN: Análisis FODA completo - ESTRUCTURA CORREGIDA
+      if (fodaData && ((fodaData.strengths && fodaData.strengths.length > 0) || (fodaData.weaknesses && fodaData.weaknesses.length > 0))) {
+        let fodaContent = 'ANÁLISIS FODA - POTENCIAL DE MEJORA DE LA CADENA DE VALOR INTERNA\n\n';
         
-        if (swot.strengths?.length > 0) {
-          swotContent += 'FORTALEZAS:\n';
-          swot.strengths.forEach((item, index) => {
-            swotContent += `• ${item.text}\n`;
+        if (fodaData.strengths && fodaData.strengths.length > 0) {
+          fodaContent += 'FORTALEZAS:\n';
+          fodaData.strengths.forEach((strength, index) => {
+            if (strength && strength.trim()) {
+              fodaContent += `${index + 1}. ${strength}\n`;
+            }
           });
-          swotContent += '\n';
+          fodaContent += '\n';
         }
         
-        if (swot.weaknesses?.length > 0) {
-          swotContent += 'DEBILIDADES:\n';
-          swot.weaknesses.forEach((item, index) => {
-            swotContent += `• ${item.text}\n`;
+        if (fodaData.weaknesses && fodaData.weaknesses.length > 0) {
+          fodaContent += 'DEBILIDADES:\n';
+          fodaData.weaknesses.forEach((weakness, index) => {
+            if (weakness && weakness.trim()) {
+              fodaContent += `${index + 1}. ${weakness}\n`;
+            }
           });
-          swotContent += '\n';
+          fodaContent += '\n';
         }
         
-        if (swot.opportunities?.length > 0) {
-          swotContent += 'OPORTUNIDADES:\n';
-          swot.opportunities.forEach((item, index) => {
-            swotContent += `• ${item.text}\n`;
-          });
-          swotContent += '\n';
-        }
-        
-        if (swot.threats?.length > 0) {
-          swotContent += 'AMENAZAS:\n';
-          swot.threats.forEach((item, index) => {
-            swotContent += `• ${item.text}\n`;
-          });
-        }
-        
-        if (swotContent) {
-          addSection('6. ANÁLISIS FODA', swotContent, '📈');
-        }
+        addSection('6. ANÁLISIS FODA', fodaContent);
       }
       
       if (projectData.sections.strategy) {
-        addSection('7. ESTRATEGIAS DE IMPLEMENTACIÓN', projectData.sections.strategy, '⚡');
+        addSection('7. IDENTIFICACIÓN DE ESTRATEGIA', projectData.sections.strategy);
       }
       
       if (projectData.sections.conclusions) {
-        addSection('8. CONCLUSIONES', projectData.sections.conclusions, '✅');
+        addSection('8. CONCLUSIONES', projectData.sections.conclusions);
       }
     }
 
@@ -317,17 +371,17 @@ export const exportProjectToPDF = async (projectData) => {
     if (projectData.documents && projectData.documents.length > 0) {
       projectData.documents.forEach((doc, index) => {
         if (doc.content && doc.content.trim()) {
-          addSection(`${index + 9}. ${doc.title.toUpperCase()}`, doc.content, '📄');
+          addSection(`${index + 9}. ${doc.title.toUpperCase()}`, doc.content);
         }
       });
     }
 
-    // === PIE DE PÁGINA MEJORADO ===
+    // === PIE DE PÁGINA MEJORADO - ERROR CORREGIDO ===
     const totalPages = pdf.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       pdf.setPage(i);
       
-      // Línea decorativa en el pie
+      // Línea decorativa en el pie - COORDENADAS CORREGIDAS
       pdf.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       pdf.setLineWidth(0.5);
       pdf.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);

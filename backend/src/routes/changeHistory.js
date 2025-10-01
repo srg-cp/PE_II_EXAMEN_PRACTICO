@@ -48,7 +48,7 @@ router.get('/projects/:projectId/history/compare', [
   auth,
   query('version1').isInt({ min: 1 }),
   query('version2').isInt({ min: 1 }),
-  query('sectionKey').isIn(['mission', 'vision', 'objectives', 'swot', 'strategy', 'conclusions'])
+  query('sectionKey').isIn(['mission', 'vision', 'objectives', 'strategy', 'conclusions'])
 ], compareVersions);
 
 module.exports = router;
