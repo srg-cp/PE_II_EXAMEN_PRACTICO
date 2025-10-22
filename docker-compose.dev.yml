@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Base de datos MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: mindplan-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: mindplan
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - mindplan-dev-network
+
+  # Backend API en modo desarrollo
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: mindplan-backend-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/mindplan
+      - JWT_SECRET=tu_clave_secreta_desarrollo
+      - FRONTEND_URL=http://localhost:5173
+      - VITE_DEV_URL=http://localhost:5173
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - mindplan-dev-network
+
+  # Frontend React en modo desarrollo
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: mindplan-frontend-dev
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - VITE_BACKEND_URL=http://localhost:5000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend-dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - mindplan-dev-network
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+
+networks:
+  mindplan-dev-network:
+    driver: bridge
