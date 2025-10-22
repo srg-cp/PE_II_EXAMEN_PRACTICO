@@ -25,7 +25,8 @@ import {
   History as HistoryIcon,
   Download,
   Save as SaveIcon,
-  CheckCircle as CheckCircleIcon
+  CheckCircle as CheckCircleIcon,
+  BusinessCenter as PorterIcon
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +41,7 @@ import ObjectivesSection from './ProjectSections/ObjectivesSection';
 import StrategySection from './ProjectSections/StrategySection';
 import ConclusionsSection from './ProjectSections/ConclusionsSection';
 import ValueChainDiagnosticSection from './ProjectSections/ValueChainDiagnosticSection';
+import PorterForcesSection from './ProjectSections/PorterForcesSection';
 
 // Importar componentes adicionales
 import ConnectedUsersHeader from './ConnectedUsers/ConnectedUsersHeader';
@@ -66,7 +68,8 @@ const ProjectView = () => {
     objectives: { content: '', versions: [] },
     strategy: { content: '', versions: [] },
     conclusions: { content: '', versions: [] },
-    valueChainDiagnostic: { content: '', versions: [] }
+    valueChainDiagnostic: { content: '', versions: [] },
+    porterForces: { content: '', versions: [] }
   });
 
   const sections = [
@@ -93,6 +96,12 @@ const ProjectView = () => {
       label: 'Autodiagnóstico Cadena de Valor',
       icon: <ValueChainIcon />,
       component: ValueChainDiagnosticSection
+    },
+    {
+      id: 'porterForces',
+      label: 'Las 5 Fuerzas de Porter',
+      icon: <PorterIcon />,
+      component: PorterForcesSection
     },
     {
       id: 'strategy',
@@ -294,7 +303,8 @@ const ProjectView = () => {
           vision: projectData.vision?.content || '',
           objectives: projectData.objectives?.content || [],
           strategy: projectData.strategy?.content || '',
-          conclusions: projectData.conclusions?.content || ''
+          conclusions: projectData.conclusions?.content || '',
+          porterForces: projectData.porterForces?.content || ''
         },
         documents: project?.documents || []
       };
