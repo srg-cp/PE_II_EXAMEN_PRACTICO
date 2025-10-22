@@ -66,6 +66,10 @@ docker-compose down --rmi all --volumes
 - **Backend API**: http://localhost:5000
 - **MongoDB**: localhost:27017
 
+
+**Evidencia visual:**
+![Ejecucion script para levantar contenedor](evidencia/docker1.png)
+
 ---
 
 ### ✅ Mejora 2: Análisis de las 5 Fuerzas de Porter
